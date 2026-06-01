@@ -43,9 +43,11 @@ def get_pipeline():
             token=hf_token
         )
         
-        # Move to GPU and enable memory efficiency configurations
-        pipe.to("cuda")
-        print("[Flux Worker] Model successfully loaded on CUDA GPU.")
+        # Enable CPU offloading to avoid CUDA OOM on 24GB GPUs.
+        # FLUX.1-schnell weights (~22.6GB bfloat16) exceed 24GB when fully
+        # resident on GPU. Offloading swaps layers to RAM when not in use.
+        pipe.enable_model_cpu_offload()
+        print("[Flux Worker] Model loaded with CPU offloading enabled (24GB VRAM compatible).")
     return pipe
 
 def upload_to_r2(local_path: str, bucket_key: str) -> str:
