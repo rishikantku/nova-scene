@@ -105,14 +105,14 @@ export class RunPodVideoProvider implements VideoProvider {
     const payload = {
       prompt,
       aspect_ratio: aspectRatio,
-      width: aspectRatio === '16:9' ? 1024 : 768,
-      height: aspectRatio === '16:9' ? 576 : 768,
+      width: aspectRatio === '16:9' ? 1024 : 576,
+      height: aspectRatio === '16:9' ? 576 : 1024,
       num_inference_steps: 28,
       ...options
     };
 
     const jobId = await this.submitJob(this.fluxEndpointId, payload);
-    return this.pollJobStatus(this.fluxEndpointId, jobId);
+    return this.pollJobStatus(this.fluxEndpointId, jobId, 600);
   }
 
   async generateMotion(imageUrl: string, prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
@@ -129,6 +129,6 @@ export class RunPodVideoProvider implements VideoProvider {
     };
 
     const jobId = await this.submitJob(this.wanEndpointId, payload);
-    return this.pollJobStatus(this.wanEndpointId, jobId);
+    return this.pollJobStatus(this.wanEndpointId, jobId, 600);
   }
 }

@@ -8,6 +8,7 @@ import { RunPodVideoProvider } from './core/runpod_provider';
 import { NovaSceneOrchestrator } from './core/orchestrator';
 
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const app = express();
 app.use(cors());

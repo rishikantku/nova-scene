@@ -27,13 +27,20 @@ def get_pipeline():
         print("[Flux Worker] Initializing Flux 1.2.1 pipeline...")
         print(f"[Flux Worker] Using cache directory: {CACHE_DIR}")
         
+        hf_token = os.environ.get("HF_TOKEN")
+        if hf_token:
+            print(f"[Flux Worker] HF_TOKEN is set. Length: {len(hf_token)}. Starts with: {hf_token[:8]}")
+        else:
+            print("[Flux Worker] WARNING: HF_TOKEN environment variable is not set!")
+            
         # Load Flux Schnell (speed-optimized) or Dev
         model_id = "black-forest-labs/FLUX.1-schnell"
         
         pipe = FluxPipeline.from_pretrained(
             model_id,
             torch_dtype=torch.bfloat16,
-            cache_dir=CACHE_DIR
+            cache_dir=CACHE_DIR,
+            token=hf_token
         )
         
         # Move to GPU and enable memory efficiency configurations
