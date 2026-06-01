@@ -31,19 +31,21 @@ def get_pipeline():
     if pipe is None:
         print("[Wan Worker] Initializing Wan 2.1 Image-to-Video pipeline...")
         print(f"[Wan Worker] Using cache directory: {CACHE_DIR}")
-        
-        # Load Wan 2.1 I2V model (e.g. Wan2.1-I2V-14B-480P or similar)
+
+        # Load Wan 2.1 I2V model (480P variant — balanced quality/speed)
         model_id = "Wan-AI/Wan2.1-I2V-14B-480P"
-        
+
         pipe = WanImageToVideoPipeline.from_pretrained(
             model_id,
             torch_dtype=torch.bfloat16,
             cache_dir=CACHE_DIR
         )
-        
-        # Enable CPU offloading or model optimizations to prevent OOM
-        pipe.to("cuda")
-        print("[Wan Worker] Model successfully loaded on CUDA GPU.")
+
+        # Enable sequential CPU offloading: offloads transformer layers to RAM
+        # when not in use, allowing the 14B model to run on 24GB VRAM GPUs.
+        # Slightly slower than full CUDA but avoids OOM errors.
+        pipe.enable_model_cpu_offload()
+        print("[Wan Worker] Model loaded with CPU offloading enabled (24GB VRAM compatible).")
     return pipe
 
 def upload_to_r2(local_path: str, bucket_key: str) -> str:
