@@ -42,11 +42,15 @@ def get_pipeline():
             cache_dir=CACHE_DIR
         )
 
-        # Enable sequential CPU offloading: offloads transformer layers to RAM
-        # when not in use, allowing the 14B model to run on 24GB VRAM GPUs.
-        # Slightly slower than full CUDA but avoids OOM errors.
-        pipe.enable_model_cpu_offload()
-        print("[Wan Worker] Model loaded with CPU offloading enabled (24GB VRAM compatible).")
+        # Enable sequential CPU offloading: offloads transformer layer-by-layer to RAM
+        # allowing the massive 28GB 14B model to run easily on 24GB VRAM GPUs.
+        pipe.enable_sequential_cpu_offload()
+        
+        # Enable VAE slicing and tiling to prevent OOM when decoding high-res video frames
+        pipe.vae.enable_slicing()
+        pipe.vae.enable_tiling()
+        
+        print("[Wan Worker] Model loaded with Sequential CPU offloading & VAE tiling enabled (24GB VRAM compatible).")
     return pipe
 
 def upload_to_r2(local_path: str, bucket_key: str) -> str:
