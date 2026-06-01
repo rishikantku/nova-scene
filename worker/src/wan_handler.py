@@ -34,7 +34,7 @@ def get_pipeline():
         print(f"[Wan Worker] Using cache directory: {CACHE_DIR}")
 
         # Load Wan 2.1 I2V model (480P variant — balanced quality/speed)
-        model_id = "Wan-AI/Wan2.1-I2V-14B-480P"
+        model_id = "Wan-AI/Wan2.1-I2V-14B-480P-Diffusers"
 
         pipe = WanImageToVideoPipeline.from_pretrained(
             model_id,
