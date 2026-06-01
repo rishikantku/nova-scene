@@ -18,7 +18,9 @@ RUN pip install --no-cache-dir \
     accelerate==0.34.0 \
     boto3==1.34.50 \
     requests==2.31.0 \
-    pillow==10.2.0
+    pillow==10.2.0 \
+    protobuf==4.25.3 \
+    sentencepiece==0.2.0
 
 # Copy worker script handlers
 COPY worker/src/flux_handler.py ./flux_handler.py
