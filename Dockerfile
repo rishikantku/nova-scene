@@ -20,7 +20,8 @@ RUN pip install --no-cache-dir \
     requests==2.31.0 \
     pillow==10.2.0 \
     protobuf==4.25.3 \
-    sentencepiece==0.2.0
+    sentencepiece==0.2.0 \
+    certifi
 
 # Copy worker script handlers
 COPY worker/src/flux_handler.py ./flux_handler.py

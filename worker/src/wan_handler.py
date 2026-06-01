@@ -4,6 +4,7 @@ import time
 import uuid
 import requests
 import boto3
+import certifi
 import torch
 from PIL import Image
 from botocore.config import Config
@@ -58,7 +59,8 @@ def upload_to_r2(local_path: str, bucket_key: str) -> str:
         endpoint_url=R2_ENDPOINT_URL,
         aws_access_key_id=R2_ACCESS_KEY_ID,
         aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-        config=s3_config
+        config=s3_config,
+        verify=certifi.where()  # Fix SSL handshake failure with Cloudflare R2
     )
     
     s3_client.upload_file(local_path, R2_BUCKET_NAME, bucket_key)

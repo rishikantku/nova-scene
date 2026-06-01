@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir \
     pillow==10.2.0 \
     imageio[ffmpeg]==2.34.0 \
     sentencepiece==0.2.0 \
-    protobuf==4.25.3
+    protobuf==4.25.3 \
+    certifi
 
 # Copy only the Wan handler
 COPY worker/src/wan_handler.py ./wan_handler.py
