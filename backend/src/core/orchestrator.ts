@@ -46,10 +46,14 @@ export class NovaSceneOrchestrator {
   }
 
   async stitchScenes(videoUrls: string[]): Promise<string> {
-    console.log(`[Orchestrator] Stitching ${videoUrls.length} scenes using FFmpeg pipeline...`);
-    // For local tests/runs, we return either the first clip or fallback to final static video
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    return videoUrls[0] || 'http://localhost:8000/static/video.mp4';
+    console.log(`[Orchestrator] Stitching ${videoUrls.length} scene clips...`);
+    if (!videoUrls.length) {
+      throw new Error('No video clips were generated to stitch.');
+    }
+    // MVP: return the first scene clip as the final output.
+    // Future: run an FFmpeg concat job on a server or RunPod worker.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return videoUrls[0];
   }
 
   async executeJob(
@@ -149,9 +153,9 @@ export class NovaSceneOrchestrator {
           progress: 100,
           video: {
             videoUrl: finalVideoUrl,
-            thumbnailUrl: scenesList[0]?.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
+            thumbnailUrl: scenesList[0]?.imageUrl || '',
             duration: totalDuration,
-            fileSizeStr: '11.8 MB'
+            fileSizeStr: `${(totalDuration * 2).toFixed(1)} MB`
           }
         });
       }
