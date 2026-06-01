@@ -1,0 +1,28 @@
+# docker/Dockerfile.gpu-worker
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel
+
+WORKDIR /app
+
+# Install system dependencies (ffmpeg is needed for video compiles)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PyTorch, Diffusers, and boto3 for R2 uploads
+RUN pip install --no-cache-dir \
+    runpod==1.6.2 \
+    diffusers==0.26.3 \
+    transformers==4.38.2 \
+    accelerate==0.27.2 \
+    boto3==1.34.50 \
+    requests==2.31.0 \
+    pillow==10.2.0
+
+# Copy worker script handlers
+COPY worker/src/flux_handler.py ./flux_handler.py
+COPY worker/src/wan_handler.py ./wan_handler.py
+
+# Default entry point (overridden in RunPod serverless console)
+CMD ["python", "-u", "flux_handler.py"]
