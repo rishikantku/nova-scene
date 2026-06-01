@@ -11,8 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-# Using slightly newer diffusers for better Wan 2.1 support
-RUN pip install --no-cache-dir \
+# Using slightly newer diffusers for better Wan 2.1 support, and upgrading PyTorch to 2.6.0
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cu124 \
+    torch==2.6.0 \
+    torchvision==0.21.0 \
+    torchaudio==2.6.0 \
     runpod==1.6.2 \
     diffusers==0.38.0 \
     transformers==4.48.0 \
