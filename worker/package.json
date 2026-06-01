@@ -1,0 +1,21 @@
+{
+  "name": "novascene-worker",
+  "version": "1.0.0",
+  "description": "NovaScene Stateless Worker in Node.js",
+  "main": "dist/worker.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/worker.js",
+    "dev": "ts-node src/worker.ts"
+  },
+  "dependencies": {
+    "bullmq": "^5.8.0",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,21 @@
+# docker/Dockerfile.worker
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependency packages
+COPY worker/package*.json ./
+RUN npm ci --only=production
+
+# Copy source and configurations
+COPY worker/tsconfig.json ./
+COPY worker/src ./src
+
+# Build Typescript source
+RUN npm install -D typescript @types/node && \
+    npx tsc && \
+    npm prune --production
+
+ENV NODE_ENV=production
+
+CMD ["node", "dist/worker.js"]
