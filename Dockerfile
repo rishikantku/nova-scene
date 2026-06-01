@@ -13,9 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install PyTorch, Diffusers, and boto3 for R2 uploads
 RUN pip install --no-cache-dir \
     runpod==1.6.2 \
-    diffusers==0.26.3 \
-    transformers==4.38.2 \
-    accelerate==0.27.2 \
+    diffusers==0.32.1 \
+    transformers==4.45.0 \
+    accelerate==0.34.0 \
     boto3==1.34.50 \
     requests==2.31.0 \
     pillow==10.2.0
