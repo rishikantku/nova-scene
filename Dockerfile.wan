@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Using slightly newer diffusers for better Wan 2.1 support
 RUN pip install --no-cache-dir \
     runpod==1.6.2 \
-    diffusers==0.32.1 \
+    diffusers==0.38.0 \
     transformers==4.48.0 \
     accelerate==0.34.0 \
     boto3==1.34.50 \
