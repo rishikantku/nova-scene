@@ -14,8 +14,8 @@ import {
   ArrowRight, 
   Clock,
   Volume2,
-  Video
-} from "lucide-react";
+  Video,
+  UserCheck
 
 interface Scene {
   id: string;
@@ -30,7 +30,7 @@ interface Scene {
 interface JobState {
   job_id: string;
   project_id: string;
-  status: 'queued' | 'analyzing' | 'processing_scenes' | 'stitching' | 'completed' | 'failed';
+  status: 'queued' | 'analyzing' | 'awaiting_approval' | 'processing_scenes' | 'stitching' | 'completed' | 'failed';
   overall_progress: number;
   scenes: Scene[];
   video?: {
@@ -102,6 +102,19 @@ export default function Home() {
       window.open(url, '_blank');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!job) return;
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/jobs/${job.job_id}/approve`, {
+        method: "POST"
+      });
+      if (!response.ok) throw new Error("Failed to approve job");
+      addLog("Scenes approved. Triggering GPU rendering phase...");
+    } catch (err: any) {
+      addLog(`Error approving job: ${err.message}`);
     }
   };
 
@@ -416,6 +429,11 @@ export default function Home() {
                         <AlertTriangle className="w-3.5 h-3.5" />
                         Failed
                       </span>
+                    ) : job.status === 'awaiting_approval' ? (
+                      <span className="text-amber-400 bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5" />
+                        Awaiting Approval
+                      </span>
                     ) : (
                       <span className="text-violet-400 bg-violet-500/5 border border-violet-500/10 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -427,7 +445,35 @@ export default function Home() {
 
                 {/* Main Video View Box */}
                 <div className="flex-1 bg-black/60 rounded-xl border border-white/5 overflow-hidden relative min-h-[220px] flex flex-col justify-between">
-                  {selectedPreview ? (
+                  {job.status === 'awaiting_approval' ? (
+                    <div className="flex-1 flex flex-col p-6 overflow-y-auto max-h-[500px]">
+                      <div className="flex items-center gap-2 mb-4 text-amber-400">
+                        <Sparkles className="w-5 h-5" />
+                        <h3 className="font-bold tracking-wide">Director's Cut: Review Scenes</h3>
+                      </div>
+                      <p className="text-xs text-zinc-400 mb-6">The Director has drafted the following sequence. Approve to begin rendering.</p>
+                      
+                      <div className="flex flex-col gap-4 mb-6">
+                        {job.scenes.map((scene) => (
+                          <div key={scene.id} className="bg-[#121118]/80 border border-white/10 rounded-xl p-4 shadow-lg border-l-2 border-l-amber-500/50">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-xs font-bold text-violet-400 tracking-wider">SCENE {scene.index + 1}</span>
+                              <span className="text-[10px] text-zinc-500 font-mono bg-black/40 px-2 py-0.5 rounded border border-white/5">{scene.duration}s</span>
+                            </div>
+                            <p className="text-sm text-zinc-300 leading-relaxed font-mono">{scene.prompt}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={handleApprove}
+                        className="w-full mt-auto py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 rounded-xl text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Approve & Generate Video</span>
+                      </button>
+                    </div>
+                  ) : selectedPreview ? (
                     <div className="w-full h-full relative flex-1 min-h-[200px]">
                       <video 
                         key={selectedPreview.url}

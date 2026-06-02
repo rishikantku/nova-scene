@@ -29,7 +29,7 @@ interface Scene {
 interface Job {
   jobId: string;
   projectId: string;
-  status: 'queued' | 'analyzing' | 'processing_scenes' | 'stitching' | 'completed' | 'failed';
+  status: 'queued' | 'analyzing' | 'awaiting_approval' | 'processing_scenes' | 'stitching' | 'completed' | 'failed';
   progress: number;
   prompt: string;
   scenes: Scene[];
@@ -81,14 +81,57 @@ function notifyClients(jobId: string) {
   });
 }
 
-// Background simulation of the rendering pipeline
-async function simulateJobPipeline(jobId: string, prompt: string, duration: number = 15, includeAudio: boolean = false, audioPrompt: string = "", videoEngine: string = "wan") {
-  console.log(`[Pipeline] Beginning execution for job ${jobId}`);
+// Phase 1: Planning (LLM / Director)
+async function simulateJobPlanningPhase(jobId: string, prompt: string, duration: number = 15) {
+  console.log(`[Pipeline] Beginning planning phase for job ${jobId}`);
   const job = MOCK_JOBS[jobId];
   if (!job) {
     console.error(`[Pipeline] Job ${jobId} not found in database!`);
     return;
   }
+
+  job.status = 'analyzing';
+  job.progress = 10;
+  notifyClients(jobId);
+
+  // We need a dummy provider just to initialize the orchestrator
+  const provider = new MockVideoProvider();
+  const orchestrator = new NovaSceneOrchestrator(provider);
+
+  try {
+    const scenes = await orchestrator.splitPromptIntoScenes(prompt, duration);
+    
+    job.scenes = scenes.map((s) => ({
+      id: `scene-${s.sceneIndex}-${crypto.randomUUID()}`,
+      index: s.sceneIndex,
+      prompt: s.prompt,
+      duration: s.duration,
+      status: 'pending'
+    }));
+
+    job.status = 'awaiting_approval';
+    job.progress = 20;
+    notifyClients(jobId);
+    console.log(`[Pipeline] Job ${jobId} planning complete. Awaiting user approval.`);
+  } catch (error: any) {
+    console.error(`[Pipeline] Error during planning:`, error.message);
+    job.status = 'failed';
+    job.errorMessage = error.message || 'Planning failed';
+    notifyClients(jobId);
+  }
+}
+
+// Phase 2: Heavy GPU Rendering
+async function simulateJobRenderPhase(jobId: string) {
+  console.log(`[Pipeline] Beginning render phase for job ${jobId}`);
+  const job = MOCK_JOBS[jobId];
+  if (!job) {
+    console.error(`[Pipeline] Job ${jobId} not found in database!`);
+    return;
+  }
+
+  job.status = 'processing_scenes';
+  notifyClients(jobId);
 
   // Detect RunPod API configuration
   const apiKey = process.env.RUNPOD_API_KEY;
@@ -112,32 +155,39 @@ async function simulateJobPipeline(jobId: string, prompt: string, duration: numb
   const orchestrator = new NovaSceneOrchestrator(provider);
 
   try {
-    await orchestrator.executeJob(jobId, prompt, duration, includeAudio, audioPrompt, videoEngine, (update) => {
-      // Map progress updates back to the job record
-      if (update.status) job.status = update.status;
-      if (update.progress !== undefined) job.progress = update.progress;
-      if (update.scenes) {
-        // Map OrchestratorScene to Local Express Scene interface
-        job.scenes = update.scenes.map((s) => ({
-          id: s.id,
-          index: s.index,
-          prompt: s.prompt,
-          duration: s.duration,
-          status: s.status,
-          imageUrl: s.imageUrl,
-          videoUrl: s.videoUrl
-        }));
-      }
-      if (update.video !== undefined) job.video = update.video;
-      if (update.errorMessage !== undefined) job.errorMessage = update.errorMessage;
+    // We pass the scenes stored in the DB (which the user approved) to the orchestrator
+    await orchestrator.executeJobRenderPhase(
+      jobId, 
+      job.scenes, 
+      job.includeAudio, 
+      job.audioPrompt, 
+      job.videoEngine, 
+      (update) => {
+        // Map progress updates back to the job record
+        if (update.status) job.status = update.status as any; // Cast from orchestrator status
+        if (update.progress !== undefined) job.progress = update.progress;
+        if (update.scenes) {
+          // Update scene statuses
+          update.scenes.forEach(us => {
+            const ls = job.scenes.find(s => s.index === us.index);
+            if (ls) {
+              ls.status = us.status;
+              ls.imageUrl = us.imageUrl;
+              ls.videoUrl = us.videoUrl;
+            }
+          });
+        }
+        if (update.video !== undefined) job.video = update.video;
+        if (update.errorMessage !== undefined) job.errorMessage = update.errorMessage;
 
-      notifyClients(jobId);
-    });
+        notifyClients(jobId);
+      }
+    );
 
     job.completedAt = new Date().toISOString();
     notifyClients(jobId);
   } catch (error: any) {
-    console.error(`[Pipeline] Error during job pipeline simulation:`, error.message);
+    console.error(`[Pipeline] Error during render phase:`, error.message);
     job.status = 'failed';
     job.errorMessage = error.message || 'Pipeline execution failed';
     notifyClients(jobId);
@@ -171,8 +221,8 @@ app.post('/api/v1/jobs', (req: Request, res: Response) => {
   };
 
   // Trigger non-blocking async process
-  console.log(`[POST] Job ${jobId} initialized. Starting background pipeline...`);
-  simulateJobPipeline(jobId, prompt, duration, include_audio, audio_prompt, video_engine || "wan");
+  console.log(`[POST] Job ${jobId} initialized. Starting planning phase...`);
+  simulateJobPlanningPhase(jobId, prompt, duration);
 
   return res.status(202).json({
     job_id: jobId,
@@ -181,6 +231,26 @@ app.post('/api/v1/jobs', (req: Request, res: Response) => {
     progress: 0,
     created_at: MOCK_JOBS[jobId].createdAt
   });
+});
+
+app.post('/api/v1/jobs/:job_id/approve', (req: Request, res: Response) => {
+  const { job_id } = req.params;
+  const job = MOCK_JOBS[job_id];
+
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+
+  if (job.status !== 'awaiting_approval') {
+    return res.status(400).json({ error: 'Job is not awaiting approval' });
+  }
+
+  console.log(`[POST] /api/v1/jobs/${job_id}/approve - User approved scenes. Starting render phase...`);
+  
+  // Trigger rendering asynchronously
+  simulateJobRenderPhase(job_id);
+
+  return res.status(200).json({ success: true, message: 'Rendering started' });
 });
 
 app.get('/api/v1/jobs/:job_id', (req: Request, res: Response) => {

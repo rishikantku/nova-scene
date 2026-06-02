@@ -139,33 +139,17 @@ export class NovaSceneOrchestrator {
     return finalVideoUrl;
   }
 
-  async executeJob(
+  async executeJobRenderPhase(
     jobId: string,
-    originalPrompt: string,
-    targetDuration: number = 15,
+    scenesList: OrchestratorScene[],
     includeAudio: boolean = false,
     audioPrompt: string = "",
     videoEngine: string = "wan",
     onProgress?: (update: OrchestratorProgressUpdate) => void
   ): Promise<string> {
-    console.log(`[Orchestrator] Running live orchestration job: ${jobId}`);
+    console.log(`[Orchestrator] Starting render phase for job: ${jobId}`);
     
     try {
-      // 1. Analyze and split prompt
-      if (onProgress) {
-        onProgress({ status: 'analyzing', progress: 10 });
-      }
-      const scenes = await this.splitPromptIntoScenes(originalPrompt, targetDuration);
-      
-      // 2. Initialize scene tracking
-      const scenesList: OrchestratorScene[] = scenes.map((s) => ({
-        id: `scene-${s.sceneIndex}-${Math.random().toString(36).substring(2, 7)}`,
-        index: s.sceneIndex,
-        prompt: s.prompt,
-        duration: s.duration,
-        status: 'pending'
-      }));
-
       if (onProgress) {
         onProgress({
           status: 'processing_scenes',
@@ -204,19 +188,19 @@ export class NovaSceneOrchestrator {
       };
 
       // 3. Render all scene segments in parallel, AND audio if requested
-      const renderTasks = scenes.map(async (scene) => {
-        updateSceneAndNotify(scene.sceneIndex, { status: 'generating_image' });
+      const renderTasks = scenesList.map(async (scene) => {
+        updateSceneAndNotify(scene.index, { status: 'generating_image' });
         
         // Generate Flux Keyframe
         const imageUrl = await this.provider.generateImage(scene.prompt, '16:9');
-        updateSceneAndNotify(scene.sceneIndex, {
+        updateSceneAndNotify(scene.index, {
           status: 'generating_motion',
           imageUrl
         });
 
         // Generate Motion Clip
         const videoUrl = await this.provider.generateMotion(imageUrl, scene.prompt, scene.duration, videoEngine);
-        updateSceneAndNotify(scene.sceneIndex, {
+        updateSceneAndNotify(scene.index, {
           status: 'completed',
           videoUrl
         });
@@ -228,7 +212,7 @@ export class NovaSceneOrchestrator {
       let audioPromise: Promise<string | undefined> = Promise.resolve(undefined);
       if (includeAudio) {
         console.log(`[Orchestrator] Dispatching Audio Task for prompt: "${audioPrompt}"`);
-        const totalDuration = scenes.reduce((acc, s) => acc + s.duration, 0);
+        const totalDuration = scenesList.reduce((acc, s) => acc + s.duration, 0);
         audioPromise = this.provider.generateAudio(audioPrompt, totalDuration).catch((err) => {
           console.error(`[Orchestrator] Audio generation failed, continuing without audio:`, err.message);
           return undefined;
