@@ -32,11 +32,9 @@ def upload_to_r2(file_path: str, key_name: str) -> str:
         aws_access_key_id=R2_ACCESS_KEY_ID,
         aws_secret_access_key=R2_SECRET_ACCESS_KEY,
         region_name="auto",
-        config=Config(signature_version="s3v4")
+        config=Config(signature_version="s3v4"),
+        verify=certifi.where()
     )
-    
-    # Use CA bundle for Cloudflare compatibility
-    os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
     
     s3_client.upload_file(
         file_path, 
