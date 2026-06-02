@@ -24,23 +24,40 @@ pipeline = pipeline.to("cuda")
 print("[Audio Worker] Pipeline loaded successfully on CUDA.")
 
 def upload_to_r2(file_path: str, key_name: str) -> str:
-    print(f"[Audio Worker] Uploading {file_path} to R2 as {key_name}...")
-    s3_config = Config(retries={"max_attempts": 3, "mode": "standard"})
+    print(f"[Audio Worker] Uploading {file_path} to R2 as {key_name} via cURL bypass...")
+    
+    # 1. Generate presigned URL (local only, no SSL)
     s3_client = boto3.client(
         "s3",
         endpoint_url=R2_ENDPOINT_URL,
         aws_access_key_id=R2_ACCESS_KEY_ID,
         aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-        config=s3_config,
-        verify=False
+        region_name="auto",
+        config=Config(signature_version="s3v4")
     )
     
-    s3_client.upload_file(
-        file_path, 
-        R2_BUCKET_NAME, 
-        key_name,
-        ExtraArgs={'ContentType': 'audio/wav'}
+    presigned_url = s3_client.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': R2_BUCKET_NAME,
+            'Key': key_name,
+            'ContentType': 'audio/wav'
+        },
+        ExpiresIn=3600
     )
+    
+    # 2. Use system cURL to bypass Python's urllib3 SSL handshake issues
+    import subprocess
+    curl_cmd = [
+        "curl", "-s", "-S", "-X", "PUT",
+        "-T", file_path,
+        "-H", "Content-Type: audio/wav",
+        presigned_url
+    ]
+    
+    result = subprocess.run(curl_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception(f"cURL upload failed: {result.stderr}")
     
     public_url = f"{R2_CDN_URL}/{key_name}"
     print(f"[Audio Worker] Upload complete: {public_url}")
