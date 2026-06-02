@@ -132,7 +132,8 @@ def handler(job):
                 current_input_image,
                 prompt,
                 num_frames=current_num_frames,
-                num_inference_steps=num_inference_steps
+                num_inference_steps=num_inference_steps,
+                output_type="pil"
             ).frames[0]
             
             if i == 0:
