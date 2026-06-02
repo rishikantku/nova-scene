@@ -26,14 +26,14 @@ print("[LTX Worker] Pipeline loaded successfully on CUDA.")
 
 def upload_to_r2(file_path: str, key_name: str) -> str:
     print(f"[LTX Worker] Uploading {file_path} to R2 as {key_name}...")
+    s3_config = Config(retries={"max_attempts": 3, "mode": "standard"})
     s3_client = boto3.client(
         "s3",
         endpoint_url=R2_ENDPOINT_URL,
         aws_access_key_id=R2_ACCESS_KEY_ID,
         aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-        region_name="auto",
-        config=Config(signature_version="s3v4"),
-        verify=certifi.where()
+        config=s3_config,
+        verify=False
     )
     
     s3_client.upload_file(
