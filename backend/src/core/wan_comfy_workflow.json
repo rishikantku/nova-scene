@@ -1,0 +1,93 @@
+{
+  "3": {
+    "inputs": {
+      "image": "INJECT_IMAGE_FILENAME"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image (Character Sheet)"
+    }
+  },
+  "10": {
+    "inputs": {
+      "ipadapter_file": "ip-adapter-wan-2.2.safetensors"
+    },
+    "class_type": "IPAdapterModelLoader",
+    "_meta": {
+      "title": "Load IPAdapter Model"
+    }
+  },
+  "11": {
+    "inputs": {
+      "weight": 0.8,
+      "noise": 0.1,
+      "weight_type": "standard",
+      "start_at": 0.0,
+      "end_at": 1.0,
+      "ipadapter": [
+        "10",
+        0
+      ],
+      "image": [
+        "3",
+        0
+      ],
+      "model": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "IPAdapterAdvanced",
+    "_meta": {
+      "title": "IPAdapter Apply"
+    }
+  },
+  "12": {
+    "inputs": {
+      "model_name": "wan2.1-i2v-14b.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Wan 2.2 Checkpoint"
+    }
+  },
+  "4": {
+    "inputs": {
+      "prompt": "INJECT_PROMPT",
+      "negative_prompt": "worst quality, blurry, mutated, ugly",
+      "num_frames": 81,
+      "width": 832,
+      "height": 480,
+      "num_inference_steps": 40,
+      "fps": 16,
+      "seed": 42,
+      "model": [
+        "11",
+        0
+      ],
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "WanVideoWrapper",
+    "_meta": {
+      "title": "Wan 2.2 Video Generator"
+    }
+  },
+  "5": {
+    "inputs": {
+      "filename_prefix": "wan_scene",
+      "fps": 16,
+      "format": "video/h264-mp4",
+      "images": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Save Video"
+    }
+  }
+}

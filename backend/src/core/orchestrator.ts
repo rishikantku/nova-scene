@@ -21,6 +21,8 @@ export interface OrchestratorScene {
   status: 'pending' | 'generating_image' | 'generating_motion' | 'completed' | 'failed';
   imageUrl?: string | null;
   videoUrl?: string | null;
+  loraSafetensorsUrl?: string;
+  loraTriggerToken?: string;
 }
 
 export interface OrchestratorProgressUpdate {
@@ -39,8 +41,8 @@ export interface OrchestratorProgressUpdate {
 export class NovaSceneOrchestrator {
   constructor(private provider: VideoProvider) {}
 
-  async splitPromptIntoScenes(prompt: string, targetDuration: number): Promise<SceneDefinition[]> {
-    console.log(`[Orchestrator] Splitting prompt using LLM Director: "${prompt}"`);
+  async splitPromptIntoScenes(prompt: string, targetDuration: number, visualStyle: string = "Cinematic"): Promise<SceneDefinition[]> {
+    console.log(`[Orchestrator] Splitting prompt using LLM Director: "${prompt}" (Style: ${visualStyle})`);
     
     const maxChunkDuration = 5;
     const numScenes = Math.ceil(targetDuration / maxChunkDuration);
@@ -61,7 +63,13 @@ export class NovaSceneOrchestrator {
             messages: [
               { 
                 role: "system", 
-                content: `You are an expert cinematic AI video director. The user will provide a master prompt for a video sequence. Your job is to break it down into ${numScenes} distinct scenes. Each scene prompt MUST focus on a different aspect of the story or use a different camera angle (e.g. establishing shot, close up, tracking shot) to create a dynamic cinematic montage. Ensure the character/subject description remains highly consistent across all prompts. Return a JSON object with a single key "scenes" containing an array of exactly ${numScenes} strings.`
+                content: `You are an expert cinematic AI video director. The user will provide a master prompt for a video sequence of exactly ${targetDuration} seconds. Your job is to break it down into a sequence of distinct cut scenes.
+Rules:
+1. Each scene MUST have a duration between 2 and 5 seconds (MAXIMUM 5 seconds due to GPU memory limits).
+2. The total sum of all scene durations MUST exactly equal ${targetDuration} seconds.
+3. The user has selected the visual style: "${visualStyle}". You MUST explicitly prepend the exact visual style AND the full, detailed character/subject description to EVERY SINGLE SCENE PROMPT you generate.
+4. DO NOT omit character details in subsequent scenes. Every scene prompt must be a fully standalone description capable of generating the exact same character in the exact same style.
+Return a JSON object with a single key "scenes" containing an array of objects, where each object has "duration" (number) and "prompt" (string).`
               },
               { role: "user", content: `Master prompt: ${prompt}` }
             ],
@@ -74,16 +82,37 @@ export class NovaSceneOrchestrator {
           const parsed = JSON.parse(data.choices[0].message.content);
           if (parsed.scenes && Array.isArray(parsed.scenes)) {
             console.log(`[Orchestrator] Successfully generated ${parsed.scenes.length} distinct scenes via OpenAI.`);
-            let remaining = targetDuration;
-            for (let i = 0; i < numScenes; i++) {
-              const chunk = Math.min(maxChunkDuration, remaining);
+            
+            // Validate and map the scenes
+            let runningTotal = 0;
+            for (let i = 0; i < parsed.scenes.length; i++) {
+              const s = parsed.scenes[i];
+              // Ensure we don't exceed the target duration
+              if (runningTotal >= targetDuration) break;
+              
+              // Clamp duration between 1 and 5 seconds, and ensure we don't exceed the remaining target duration
+              let safeDuration = Math.min(Math.max(Number(s.duration) || 5, 1), 5);
+              safeDuration = Math.min(safeDuration, targetDuration - runningTotal);
+              
               scenes.push({
                 sceneIndex: i,
-                duration: chunk,
-                prompt: parsed.scenes[i] || `${prompt} (Scene ${i+1})`
+                duration: safeDuration,
+                prompt: s.prompt || `${prompt} (Scene ${i+1})`
               });
-              remaining -= chunk;
+              runningTotal += safeDuration;
             }
+            
+            // If the LLM came up short, pad it
+            while (runningTotal < targetDuration) {
+               const padDuration = Math.min(5, targetDuration - runningTotal);
+               scenes.push({
+                 sceneIndex: scenes.length,
+                 duration: padDuration,
+                 prompt: scenes[scenes.length - 1]?.prompt || prompt
+               });
+               runningTotal += padDuration;
+            }
+            
             return scenes;
           }
         } else {
@@ -249,17 +278,34 @@ export class NovaSceneOrchestrator {
 
       // 3. Render all scene segments in parallel, AND audio if requested
       const renderTasks = scenesList.map(async (scene) => {
-        updateSceneAndNotify(scene.index, { status: 'generating_image' });
+        let imageUrl = scene.imageUrl;
         
-        // Generate Flux Keyframe
-        const imageUrl = await this.provider.generateImage(scene.prompt, '16:9');
+        if (!imageUrl) {
+          updateSceneAndNotify(scene.index, { status: 'generating_image' });
+          // Generate Flux Keyframe
+          imageUrl = await this.provider.generateImage(scene.prompt, '16:9');
+        } else {
+          console.log(`[Orchestrator] Scene ${scene.index} already has an injected imageUrl, skipping generation.`);
+        }
+
         updateSceneAndNotify(scene.index, {
           status: 'generating_motion',
           imageUrl
         });
 
         // Generate Motion Clip
-        const videoUrl = await this.provider.generateMotion(imageUrl, scene.prompt, scene.duration, videoEngine);
+        const options: any = {};
+        if (scene.loraSafetensorsUrl) {
+           options.lora_safetensors_url = scene.loraSafetensorsUrl;
+        }
+        
+        // Append trigger token to prompt if not already present
+        let finalPrompt = scene.prompt;
+        if (scene.loraTriggerToken && !finalPrompt.includes(scene.loraTriggerToken)) {
+            finalPrompt = `${scene.loraTriggerToken}, ${finalPrompt}`;
+        }
+        
+        const videoUrl = await this.provider.generateMotion(imageUrl, finalPrompt, scene.duration, videoEngine, options);
         updateSceneAndNotify(scene.index, {
           status: 'completed',
           videoUrl

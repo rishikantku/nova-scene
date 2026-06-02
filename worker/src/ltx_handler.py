@@ -94,13 +94,18 @@ def handler(job):
         print(f"[LTX Worker] Downloading base image: {image_url}")
         image = load_image(image_url)
         
+        # LTX requires width and height to be divisible by 32
+        width, height = 704, 480  # Default 16:9 safe resolution for LTX
+        
+        # CRITICAL FIX: Resize the image exactly to the pipeline dimensions
+        # Otherwise, the model receives a mismatched conditioning latent and creates distortion
+        print(f"[LTX Worker] Resizing image to {width}x{height} to match LTX latent requirements")
+        image = image.resize((width, height))
+        
         # Calculate frames at 24fps
         # Ensure num_frames is appropriate for LTX (e.g. 121 for 5s, up to 257 for longer)
         # We will use 24fps. duration * 24 + 1
         num_frames = int(duration * 24) + 1
-        
-        # LTX requires width and height to be divisible by 32
-        width, height = 704, 480  # Default 16:9 safe resolution for LTX
         
         print(f"[LTX Worker] Starting LTX pipeline for {num_frames} frames...")
         video_frames = pipeline(
