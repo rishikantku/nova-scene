@@ -53,6 +53,8 @@ export default function Home() {
   const [prompt, setPrompt] = useState(TEMPLATE_PROMPTS[0]);
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [duration, setDuration] = useState(15);
+  const [includeAudio, setIncludeAudio] = useState(false);
+  const [audioPrompt, setAudioPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [job, setJob] = useState<JobState | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -113,10 +115,16 @@ export default function Home() {
     addLog("Initializing generation pipeline...");
 
     try {
+      const payload: any = { prompt, aspect_ratio: aspectRatio, duration_target: duration };
+      if (includeAudio) {
+        payload.include_audio = true;
+        payload.audio_prompt = audioPrompt.trim() ? audioPrompt.trim() : prompt;
+      }
+
       const response = await fetch("http://localhost:8000/api/v1/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, aspect_ratio: aspectRatio, duration_target: duration })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -289,6 +297,31 @@ export default function Home() {
                     <option value={30}>30 Seconds</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Audio Settings */}
+              <div className="flex flex-col gap-3 pt-2 pb-1 border-t border-white/5 mt-1">
+                <div className="flex items-center gap-3">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={includeAudio} onChange={() => setIncludeAudio(!includeAudio)} />
+                    <div className="w-9 h-5 bg-[#121118]/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600 peer-checked:after:bg-white border border-white/10"></div>
+                    <span className="ml-3 text-xs text-zinc-400 font-medium flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5 text-violet-400" /> Generate SFX / Background Audio</span>
+                  </label>
+                </div>
+
+                {includeAudio && (
+                  <div className="flex flex-col gap-1.5 transition-all">
+                    <label className="text-xs text-zinc-400 font-medium">Audio Prompt (Optional)</label>
+                    <input
+                      type="text"
+                      value={audioPrompt}
+                      onChange={(e) => setAudioPrompt(e.target.value)}
+                      placeholder="e.g. cinematic bass drop, gentle waves crashing..."
+                      className="w-full bg-[#121118]/80 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-violet-500/50 transition-colors placeholder-zinc-600 text-[#f5f5f7]"
+                    />
+                    <p className="text-[10px] text-zinc-500 leading-tight">If left blank, the video prompt will be used for audio generation.</p>
+                  </div>
+                )}
               </div>
 
               <button
