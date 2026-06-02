@@ -16,6 +16,7 @@ import {
   Volume2,
   Video,
   UserCheck
+} from "lucide-react";
 
 interface Scene {
   id: string;
