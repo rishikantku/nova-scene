@@ -18,6 +18,9 @@ RUN pip install -r requirements.txt
 WORKDIR /workspace/ComfyUI/custom_nodes
 RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
     cd ComfyUI-WanVideoWrapper && pip install -r requirements.txt
+RUN git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
+    cd ComfyUI-VideoHelperSuite && pip install -r requirements.txt
 
 # Install runpod SDK for the serverless handler
 RUN pip install runpod boto3 certifi requests
