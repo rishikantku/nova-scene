@@ -302,15 +302,15 @@ export default function Home() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400 font-medium">Target Duration</label>
-                  <select
+                  <label className="text-xs text-zinc-400 font-medium">Target Duration (5-60s)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={60}
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
                     className="bg-[#121118]/80 border border-white/10 rounded-lg px-3 py-2 text-xs text-[#f5f5f7] focus:outline-none focus:border-violet-500/50"
-                  >
-                    <option value={15}>15 Seconds</option>
-                    <option value={30}>30 Seconds</option>
-                  </select>
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
