@@ -11,11 +11,16 @@ from diffusers import AudioLDM2Pipeline
 import runpod
 
 # Load configurations from environment variables
-R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "mock-key")
-R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "mock-secret")
-R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "http://mock-endpoint")
-R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "novascene-media")
-R2_CDN_URL = os.environ.get("R2_CDN_URL", "http://mock-public-url")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "1f8d976c6b394e7d22685aeb24cbed20")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "46ab3e8811d874d39ad456a6540578afac12d14b8e1aa10203c785085559eca5")
+R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "https://1a33db30740b936c38a50defea0fd609.r2.cloudflarestorage.com")
+
+# Auto-correct user copy-paste error from RunPod UI
+if "ec45a978b9c9499886c081c55519c8d9" in R2_ENDPOINT_URL:
+    R2_ENDPOINT_URL = "https://1a33db30740b936c38a50defea0fd609.r2.cloudflarestorage.com"
+
+R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "novascene-assets")
+R2_CDN_URL = os.environ.get("R2_CDN_URL", "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev")
 
 print("[Audio Worker] Initializing AudioLDM2 pipeline...")
 repo_id = "cvssp/audioldm2"
