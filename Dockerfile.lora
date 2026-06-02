@@ -10,9 +10,9 @@ RUN git clone https://github.com/bmaltais/kohya_ss.git
 
 WORKDIR /workspace/kohya_ss
 # Run kohya's setup script (in a real scenario we'd use un-interactive pip installs from requirements)
-RUN pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu121
-RUN pip install -r requirements.txt
-RUN pip install xformers==0.0.25 --index-url https://download.pytorch.org/whl/cu121
+# RUN pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu121
+# RUN pip install -r requirements.txt
+# RUN pip install xformers==0.0.25 --index-url https://download.pytorch.org/whl/cu121
 
 # Install runpod SDK for the serverless handler
 RUN pip install runpod boto3 certifi requests
