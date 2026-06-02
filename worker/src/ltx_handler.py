@@ -34,7 +34,7 @@ def upload_to_r2(file_path: str, key_name: str) -> str:
         aws_access_key_id=R2_ACCESS_KEY_ID,
         aws_secret_access_key=R2_SECRET_ACCESS_KEY,
         region_name="auto",
-        config=Config(signature_version="s3v4")
+        config=Config(signature_version="s3v4", s3={'addressing_style': 'path'})
     )
     
     presigned_url = s3_client.generate_presigned_url(
@@ -47,10 +47,10 @@ def upload_to_r2(file_path: str, key_name: str) -> str:
         ExpiresIn=3600
     )
     
-    # 2. Use system cURL to bypass Python's urllib3 SSL handshake issues
+    # 2. Use system cURL to bypass Python's urllib3 SSL handshake issues (Force IPv4)
     import subprocess
     curl_cmd = [
-        "curl", "-s", "-S", "-X", "PUT",
+        "curl", "-4", "-s", "-S", "-X", "PUT",
         "-T", file_path,
         "-H", "Content-Type: video/mp4",
         presigned_url
@@ -58,7 +58,8 @@ def upload_to_r2(file_path: str, key_name: str) -> str:
     
     result = subprocess.run(curl_cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception(f"cURL upload failed: {result.stderr}")
+        safe_url = presigned_url.split("?")[0] # Hide signature in logs
+        raise Exception(f"cURL upload failed: {result.stderr}\nTarget URL: {safe_url}")
     
     public_url = f"{R2_CDN_URL}/{key_name}"
     print(f"[LTX Worker] Upload complete: {public_url}")
