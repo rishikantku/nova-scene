@@ -5,12 +5,16 @@ interface RunPodConfig {
   apiKey: string;
   fluxEndpointId: string;
   wanEndpointId: string;
+  ltxEndpointId: string;
+  audioEndpointId: string;
 }
 
 export class RunPodVideoProvider implements VideoProvider {
   private apiKey: string;
   private fluxEndpointId: string;
   private wanEndpointId: string;
+  private ltxEndpointId: string;
+  private audioEndpointId: string;
 
   constructor(config: RunPodConfig) {
     if (!config.apiKey) {
@@ -19,6 +23,8 @@ export class RunPodVideoProvider implements VideoProvider {
     this.apiKey = config.apiKey;
     this.fluxEndpointId = config.fluxEndpointId;
     this.wanEndpointId = config.wanEndpointId;
+    this.ltxEndpointId = config.ltxEndpointId;
+    this.audioEndpointId = config.audioEndpointId;
   }
 
   private async submitJob(endpointId: string, input: Record<string, any>): Promise<string> {
@@ -115,20 +121,41 @@ export class RunPodVideoProvider implements VideoProvider {
     return this.pollJobStatus(this.fluxEndpointId, jobId, 600);
   }
 
-  async generateMotion(imageUrl: string, prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
-    if (!this.wanEndpointId) {
-      throw new Error('RUNPOD_WAN_ENDPOINT_ID must be configured for motion generation.');
+  async generateMotion(imageUrl: string, prompt: string, duration: number, videoEngine: string, options?: Record<string, any>): Promise<string> {
+    const endpointId = videoEngine === "ltx" ? this.ltxEndpointId : this.wanEndpointId;
+    
+    if (!endpointId) {
+      throw new Error(`Endpoint ID for video engine '${videoEngine}' is not configured.`);
     }
 
     const payload = {
       image_url: imageUrl,
       prompt,
       duration,
-      num_inference_steps: 50,
+      num_inference_steps: videoEngine === "ltx" ? 50 : 30, // LTX requires 50 steps, Wan works well at 30
       ...options
     };
 
-    const jobId = await this.submitJob(this.wanEndpointId, payload);
-    return this.pollJobStatus(this.wanEndpointId, jobId, 600);
+    // If Wan, timeout is 3600. If LTX, timeout is 600.
+    const timeout = videoEngine === "ltx" ? 600 : 3600;
+
+    const jobId = await this.submitJob(endpointId, payload);
+    return this.pollJobStatus(endpointId, jobId, timeout);
+  }
+
+  async generateAudio(prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
+    if (!this.audioEndpointId) {
+      throw new Error('RUNPOD_AUDIO_ENDPOINT_ID must be configured for audio generation.');
+    }
+
+    const payload = {
+      prompt,
+      duration,
+      num_inference_steps: 200,
+      ...options
+    };
+
+    const jobId = await this.submitJob(this.audioEndpointId, payload);
+    return this.pollJobStatus(this.audioEndpointId, jobId, 300);
   }
 }

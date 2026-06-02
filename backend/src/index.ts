@@ -35,6 +35,7 @@ interface Job {
   scenes: Scene[];
   video?: {
     videoUrl: string;
+    audioUrl?: string;
     thumbnailUrl: string;
     duration: number;
     fileSizeStr: string;
@@ -42,6 +43,9 @@ interface Job {
   errorMessage?: string | null;
   createdAt: string;
   completedAt?: string | null;
+  includeAudio?: boolean;
+  audioPrompt?: string;
+  videoEngine: string;
 }
 
 const MOCK_JOBS: Record<string, Job> = {};
@@ -78,7 +82,7 @@ function notifyClients(jobId: string) {
 }
 
 // Background simulation of the rendering pipeline
-async function simulateJobPipeline(jobId: string, prompt: string) {
+async function simulateJobPipeline(jobId: string, prompt: string, includeAudio: boolean = false, audioPrompt: string = "", videoEngine: string = "wan") {
   console.log(`[Pipeline] Beginning execution for job ${jobId}`);
   const job = MOCK_JOBS[jobId];
   if (!job) {
@@ -99,14 +103,16 @@ async function simulateJobPipeline(jobId: string, prompt: string) {
       apiKey: apiKey!,
       fluxEndpointId: process.env.RUNPOD_FLUX_ENDPOINT_ID || '',
       wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
+      ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
+      audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
     });
-    console.log(`[Pipeline] Using RunPodVideoProvider (Flux Endpoint: ${process.env.RUNPOD_FLUX_ENDPOINT_ID}, Wan Endpoint: ${process.env.RUNPOD_WAN_ENDPOINT_ID})`);
+    console.log(`[Pipeline] Using RunPodVideoProvider (Flux: ${process.env.RUNPOD_FLUX_ENDPOINT_ID}, Wan: ${process.env.RUNPOD_WAN_ENDPOINT_ID}, LTX: ${process.env.RUNPOD_LTX_ENDPOINT_ID}, Audio: ${process.env.RUNPOD_AUDIO_ENDPOINT_ID})`);
   }
 
   const orchestrator = new NovaSceneOrchestrator(provider);
 
   try {
-    await orchestrator.executeJob(jobId, prompt, (update) => {
+    await orchestrator.executeJob(jobId, prompt, includeAudio, audioPrompt, videoEngine, (update) => {
       // Map progress updates back to the job record
       if (update.status) job.status = update.status;
       if (update.progress !== undefined) job.progress = update.progress;
@@ -139,8 +145,8 @@ async function simulateJobPipeline(jobId: string, prompt: string) {
 }
 
 app.post('/api/v1/jobs', (req: Request, res: Response) => {
-  const { prompt } = req.body;
-  console.log(`[POST] /api/v1/jobs received prompt: "${prompt}"`);
+  const { prompt, include_audio, audio_prompt, video_engine } = req.body;
+  console.log(`[POST] /api/v1/jobs received prompt: "${prompt}" (Engine: ${video_engine || 'wan'})`);
   if (!prompt) {
     console.log(`[POST] Error: prompt missing in body`);
     return res.status(400).json({ error: 'Prompt is required' });
@@ -157,12 +163,15 @@ app.post('/api/v1/jobs', (req: Request, res: Response) => {
     prompt,
     scenes: [],
     video: null,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    includeAudio: include_audio || false,
+    audioPrompt: audio_prompt || "",
+    videoEngine: video_engine || "wan"
   };
 
   // Trigger non-blocking async process
   console.log(`[POST] Job ${jobId} initialized. Starting background pipeline...`);
-  simulateJobPipeline(jobId, prompt);
+  simulateJobPipeline(jobId, prompt, include_audio, audio_prompt, video_engine || "wan");
 
   return res.status(202).json({
     job_id: jobId,

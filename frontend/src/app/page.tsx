@@ -53,6 +53,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState(TEMPLATE_PROMPTS[0]);
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [duration, setDuration] = useState(15);
+  const [videoEngine, setVideoEngine] = useState("wan");
   const [includeAudio, setIncludeAudio] = useState(false);
   const [audioPrompt, setAudioPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -115,7 +116,7 @@ export default function Home() {
     addLog("Initializing generation pipeline...");
 
     try {
-      const payload: any = { prompt, aspect_ratio: aspectRatio, duration_target: duration };
+      const payload: any = { prompt, aspect_ratio: aspectRatio, duration_target: duration, video_engine: videoEngine };
       if (includeAudio) {
         payload.include_audio = true;
         payload.audio_prompt = audioPrompt.trim() ? audioPrompt.trim() : prompt;
@@ -272,7 +273,7 @@ export default function Home() {
               </div>
 
               {/* Parameters */}
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-3 gap-4 pt-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-zinc-400 font-medium">Aspect Ratio</label>
                   <select
@@ -295,6 +296,18 @@ export default function Home() {
                   >
                     <option value={15}>15 Seconds</option>
                     <option value={30}>30 Seconds</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-zinc-400 font-medium">Video Engine</label>
+                  <select
+                    value={videoEngine}
+                    onChange={(e) => setVideoEngine(e.target.value)}
+                    className="bg-[#121118]/80 border border-white/10 rounded-lg px-3 py-2 text-xs text-[#f5f5f7] focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="wan">Wan 2.1 (Cinematic, Slow)</option>
+                    <option value="ltx">LTX-Video (Fast)</option>
                   </select>
                 </div>
               </div>

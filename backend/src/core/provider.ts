@@ -9,7 +9,12 @@ export interface VideoProvider {
   /**
    * Generates a 3-5s animated clip using a starting keyframe image and prompt.
    */
-  generateMotion(imageUrl: string, prompt: string, duration: number, options?: Record<string, any>): Promise<string>;
+  generateMotion(imageUrl: string, prompt: string, duration: number, videoEngine: string, options?: Record<string, any>): Promise<string>;
+
+  /**
+   * Generates a background audio or SFX clip from a text prompt.
+   */
+  generateAudio(prompt: string, duration: number, options?: Record<string, any>): Promise<string>;
 }
 
 export class MockVideoProvider implements VideoProvider {
@@ -28,10 +33,17 @@ export class MockVideoProvider implements VideoProvider {
     return this.mockImages[index];
   }
 
-  async generateMotion(imageUrl: string, prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
-    console.log(`[MockProvider] Generating Wan 2.1 motion clip using image: ${imageUrl}`);
+  async generateMotion(imageUrl: string, prompt: string, duration: number, videoEngine: string, options?: Record<string, any>): Promise<string> {
+    console.log(`[MockProvider] Generating ${videoEngine} motion clip using image: ${imageUrl}`);
     await new Promise(resolve => setTimeout(resolve, 2000));
     // Return local playable video
     return "http://localhost:8000/static/video.mp4";
+  }
+
+  async generateAudio(prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
+    console.log(`[MockProvider] Generating AudioLDM2 audio for prompt: "${prompt}"`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Return local playable audio
+    return "http://localhost:8000/static/audio.mp3";
   }
 }

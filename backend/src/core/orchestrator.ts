@@ -1,5 +1,11 @@
-// backend/src/core/orchestrator.ts
 import { VideoProvider } from './provider';
+import { exec } from 'child_process';
+import util from 'util';
+import path from 'path';
+import fs from 'fs/promises';
+import crypto from 'crypto';
+
+const execPromise = util.promisify(exec);
 
 export interface SceneDefinition {
   sceneIndex: number;
@@ -45,20 +51,67 @@ export class NovaSceneOrchestrator {
     ];
   }
 
-  async stitchScenes(videoUrls: string[]): Promise<string> {
+  async stitchScenes(videoUrls: string[], audioUrl?: string): Promise<string> {
     console.log(`[Orchestrator] Stitching ${videoUrls.length} scene clips...`);
     if (!videoUrls.length) {
       throw new Error('No video clips were generated to stitch.');
     }
-    // MVP: return the first scene clip as the final output.
-    // Future: run an FFmpeg concat job on a server or RunPod worker.
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return videoUrls[0];
+    
+    // MVP: return the first scene clip if no audio
+    let finalVideoUrl = videoUrls[0];
+    
+    if (audioUrl) {
+      console.log(`[Orchestrator] Audio URL provided. Multiplexing audio and video...`);
+      try {
+        const jobId = crypto.randomUUID();
+        const tmpDir = path.join(process.cwd(), 'tmp');
+        await fs.mkdir(tmpDir, { recursive: true }).catch(() => {});
+        
+        const videoPath = path.join(tmpDir, `video_${jobId}.mp4`);
+        const audioPath = path.join(tmpDir, `audio_${jobId}.wav`);
+        const outPath = path.join(tmpDir, `final_${jobId}.mp4`);
+        const outPathPublic = path.join(process.cwd(), 'static', `final_${jobId}.mp4`);
+        
+        // 1. Download video and audio
+        console.log(`[Orchestrator] Downloading remote files for FFmpeg...`);
+        const [vidRes, audRes] = await Promise.all([
+          fetch(videoUrls[0]),
+          fetch(audioUrl)
+        ]);
+        
+        if (!vidRes.ok || !audRes.ok) throw new Error("Failed to download media for stitching");
+        
+        await fs.writeFile(videoPath, Buffer.from(await vidRes.arrayBuffer()));
+        await fs.writeFile(audioPath, Buffer.from(await audRes.arrayBuffer()));
+        
+        // 2. FFmpeg stitch (shortest length wins to prevent hanging audio)
+        console.log(`[Orchestrator] Running FFmpeg stitch job...`);
+        const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -shortest "${outPathPublic}"`;
+        await execPromise(cmd);
+        console.log(`[Orchestrator] FFmpeg stitching complete!`);
+        
+        // 3. Clean up temps
+        await fs.unlink(videoPath).catch(() => {});
+        await fs.unlink(audioPath).catch(() => {});
+        
+        // 4. Return new URL
+        finalVideoUrl = `http://localhost:8000/static/final_${jobId}.mp4`;
+      } catch (err: any) {
+        console.error(`[Orchestrator] FFmpeg stitching failed, falling back to raw video:`, err.message);
+      }
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    
+    return finalVideoUrl;
   }
 
   async executeJob(
     jobId: string,
     originalPrompt: string,
+    includeAudio: boolean = false,
+    audioPrompt: string = "",
+    videoEngine: string = "wan",
     onProgress?: (update: OrchestratorProgressUpdate) => void
   ): Promise<string> {
     console.log(`[Orchestrator] Running live orchestration job: ${jobId}`);
@@ -116,7 +169,7 @@ export class NovaSceneOrchestrator {
         }
       };
 
-      // 3. Render all scene segments in parallel
+      // 3. Render all scene segments in parallel, AND audio if requested
       const renderTasks = scenes.map(async (scene) => {
         updateSceneAndNotify(scene.sceneIndex, { status: 'generating_image' });
         
@@ -127,8 +180,8 @@ export class NovaSceneOrchestrator {
           imageUrl
         });
 
-        // Generate Wan Motion Clip
-        const videoUrl = await this.provider.generateMotion(imageUrl, scene.prompt, scene.duration);
+        // Generate Motion Clip
+        const videoUrl = await this.provider.generateMotion(imageUrl, scene.prompt, scene.duration, videoEngine);
         updateSceneAndNotify(scene.sceneIndex, {
           status: 'completed',
           videoUrl
@@ -137,13 +190,27 @@ export class NovaSceneOrchestrator {
         return videoUrl;
       });
 
-      const videoUrls = await Promise.all(renderTasks);
+      // Audio generation Promise
+      let audioPromise: Promise<string | undefined> = Promise.resolve(undefined);
+      if (includeAudio) {
+        console.log(`[Orchestrator] Dispatching Audio Task for prompt: "${audioPrompt}"`);
+        const totalDuration = scenes.reduce((acc, s) => acc + s.duration, 0);
+        audioPromise = this.provider.generateAudio(audioPrompt, totalDuration).catch((err) => {
+          console.error(`[Orchestrator] Audio generation failed, continuing without audio:`, err.message);
+          return undefined;
+        });
+      }
+
+      const [videoUrls, generatedAudioUrl] = await Promise.all([
+        Promise.all(renderTasks),
+        audioPromise
+      ]);
 
       // 4. Stitch clips
       if (onProgress) {
         onProgress({ status: 'stitching', progress: 85 });
       }
-      const finalVideoUrl = await this.stitchScenes(videoUrls);
+      const finalVideoUrl = await this.stitchScenes(videoUrls, generatedAudioUrl);
 
       // 5. Completion
       const totalDuration = scenesList.reduce((acc, s) => acc + s.duration, 0);
