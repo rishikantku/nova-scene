@@ -41,7 +41,11 @@ def queue_prompt(prompt_workflow):
         with urllib.request.urlopen(req) as response:
             return json.loads(response.read())
     except urllib.error.URLError as e:
-        raise Exception(f"Failed to connect to ComfyUI: {e}")
+        log_content = "Log file not found."
+        if os.path.exists("/workspace/comfy.log"):
+            with open("/workspace/comfy.log", "r") as f:
+                log_content = f.read()[-2000:] # Get last 2000 chars
+        raise Exception(f"Failed to connect to ComfyUI: {e}\nComfyUI Logs:\n{log_content}")
 
 def get_history(prompt_id):
     try:
@@ -153,7 +157,11 @@ if __name__ == "__main__":
         except Exception:
             time.sleep(1)
     else:
-        print("[ComfyUI Worker] WARNING: ComfyUI server failed to start within 60 seconds.")
+        log_content = "Log file not found."
+        if os.path.exists("/workspace/comfy.log"):
+            with open("/workspace/comfy.log", "r") as f:
+                log_content = f.read()[-2000:]
+        print(f"[ComfyUI Worker] WARNING: ComfyUI server failed to start within 60 seconds.\nComfyUI Logs:\n{log_content}")
 
     print("[ComfyUI Worker] Starting RunPod Serverless Handler...")
     runpod.serverless.start({"handler": handler})
