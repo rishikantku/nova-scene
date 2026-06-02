@@ -42,15 +42,16 @@ def get_pipeline():
             cache_dir=CACHE_DIR
         )
 
-        # Enable sequential CPU offloading: offloads transformer layer-by-layer to RAM
-        # allowing the massive 28GB 14B model to run easily on 24GB VRAM GPUs.
-        pipe.enable_sequential_cpu_offload()
+        # Enable model CPU offloading: offloads entire components to RAM when not in use.
+        # This allows lightning fast generation on 80GB VRAM GPUs (like H100 or A100)
+        # because the massive 28GB Transformer fits entirely in the GPU during inference!
+        pipe.enable_model_cpu_offload()
         
         # Enable VAE slicing and tiling to prevent OOM when decoding high-res video frames
         pipe.vae.enable_slicing()
         pipe.vae.enable_tiling()
         
-        print("[Wan Worker] Model loaded with Sequential CPU offloading & VAE tiling enabled (24GB VRAM compatible).")
+        print("[Wan Worker] Model loaded with Full Component CPU offloading & VAE tiling enabled (80GB VRAM Optimized).")
     return pipe
 
 def upload_to_r2(local_path: str, bucket_key: str) -> str:
