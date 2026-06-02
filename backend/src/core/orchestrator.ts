@@ -44,9 +44,23 @@ export class NovaSceneOrchestrator {
     // Simulate LLM parse latency
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
-    return [
-      { sceneIndex: 0, duration: targetDuration, prompt: prompt }
-    ];
+    const maxChunkDuration = 5;
+    const scenes: SceneDefinition[] = [];
+    let remaining = targetDuration;
+    let index = 0;
+    
+    while (remaining > 0) {
+      const chunk = Math.min(maxChunkDuration, remaining);
+      scenes.push({
+        sceneIndex: index,
+        duration: chunk,
+        prompt: prompt // In the future, dynamically evolve prompt per scene
+      });
+      remaining -= chunk;
+      index++;
+    }
+    
+    return scenes;
   }
 
   async stitchScenes(videoUrls: string[], audioUrl?: string): Promise<string> {
@@ -55,50 +69,71 @@ export class NovaSceneOrchestrator {
       throw new Error('No video clips were generated to stitch.');
     }
     
-    // MVP: return the first scene clip if no audio
-    let finalVideoUrl = videoUrls[0];
+    const jobId = crypto.randomUUID();
+    const tmpDir = path.join(process.cwd(), 'tmp');
+    await fs.mkdir(tmpDir, { recursive: true }).catch(() => {});
     
-    if (audioUrl) {
-      console.log(`[Orchestrator] Audio URL provided. Multiplexing audio and video...`);
-      try {
-        const jobId = crypto.randomUUID();
-        const tmpDir = path.join(process.cwd(), 'tmp');
-        await fs.mkdir(tmpDir, { recursive: true }).catch(() => {});
+    const outPathPublic = path.join(process.cwd(), 'static', `final_${jobId}.mp4`);
+    let finalVideoUrl = videoUrls[0];
+    let concatenatedVideoPath = '';
+    
+    try {
+      // 1. Download all video chunks
+      const localVideoPaths: string[] = [];
+      for (let i = 0; i < videoUrls.length; i++) {
+        const vidRes = await fetch(videoUrls[i]);
+        if (!vidRes.ok) throw new Error(`Failed to download video chunk ${i}`);
+        const p = path.join(tmpDir, `chunk_${jobId}_${i}.mp4`);
+        await fs.writeFile(p, Buffer.from(await vidRes.arrayBuffer()));
+        localVideoPaths.push(p);
+      }
+      
+      // 2. Concatenate video chunks if more than 1
+      if (localVideoPaths.length > 1) {
+        concatenatedVideoPath = path.join(tmpDir, `concat_${jobId}.mp4`);
+        const listPath = path.join(tmpDir, `list_${jobId}.txt`);
+        const listContent = localVideoPaths.map(p => `file '${p}'`).join('\n');
+        await fs.writeFile(listPath, listContent);
         
-        const videoPath = path.join(tmpDir, `video_${jobId}.mp4`);
+        console.log(`[Orchestrator] Running FFmpeg concat on ${localVideoPaths.length} clips...`);
+        const concatCmd = `ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${concatenatedVideoPath}"`;
+        await execPromise(concatCmd);
+        await fs.unlink(listPath).catch(() => {});
+      } else {
+        concatenatedVideoPath = localVideoPaths[0];
+      }
+      
+      // 3. Multiplex Audio if provided
+      if (audioUrl) {
+        console.log(`[Orchestrator] Audio URL provided. Multiplexing audio and video...`);
         const audioPath = path.join(tmpDir, `audio_${jobId}.wav`);
-        const outPath = path.join(tmpDir, `final_${jobId}.mp4`);
-        const outPathPublic = path.join(process.cwd(), 'static', `final_${jobId}.mp4`);
-        
-        // 1. Download video and audio
-        console.log(`[Orchestrator] Downloading remote files for FFmpeg...`);
-        const [vidRes, audRes] = await Promise.all([
-          fetch(videoUrls[0]),
-          fetch(audioUrl)
-        ]);
-        
-        if (!vidRes.ok || !audRes.ok) throw new Error("Failed to download media for stitching");
-        
-        await fs.writeFile(videoPath, Buffer.from(await vidRes.arrayBuffer()));
+        const audRes = await fetch(audioUrl);
+        if (!audRes.ok) throw new Error("Failed to download audio for stitching");
         await fs.writeFile(audioPath, Buffer.from(await audRes.arrayBuffer()));
         
-        // 2. FFmpeg stitch (shortest length wins to prevent hanging audio)
-        console.log(`[Orchestrator] Running FFmpeg stitch job...`);
-        const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -shortest "${outPathPublic}"`;
-        await execPromise(cmd);
-        console.log(`[Orchestrator] FFmpeg stitching complete!`);
-        
-        // 3. Clean up temps
-        await fs.unlink(videoPath).catch(() => {});
+        console.log(`[Orchestrator] Running FFmpeg audio mix job...`);
+        const mixCmd = `ffmpeg -y -i "${concatenatedVideoPath}" -i "${audioPath}" -c:v copy -c:a aac -shortest "${outPathPublic}"`;
+        await execPromise(mixCmd);
         await fs.unlink(audioPath).catch(() => {});
-        
-        // 4. Return new URL
-        finalVideoUrl = `http://localhost:8000/static/final_${jobId}.mp4`;
-      } catch (err: any) {
-        console.error(`[Orchestrator] FFmpeg stitching failed, falling back to raw video:`, err.message);
+      } else {
+        // Just move the concatenated video to public directory
+        await fs.rename(concatenatedVideoPath, outPathPublic).catch(async () => {
+            await fs.copyFile(concatenatedVideoPath, outPathPublic);
+        });
       }
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      
+      finalVideoUrl = `http://localhost:8000/static/final_${jobId}.mp4`;
+      
+      // 4. Cleanup temp files
+      for (const p of localVideoPaths) {
+        await fs.unlink(p).catch(() => {});
+      }
+      if (localVideoPaths.length > 1) {
+        await fs.unlink(concatenatedVideoPath).catch(() => {});
+      }
+      
+    } catch (err: any) {
+      console.error(`[Orchestrator] FFmpeg stitching failed, falling back to raw video:`, err.message);
     }
     
     return finalVideoUrl;
