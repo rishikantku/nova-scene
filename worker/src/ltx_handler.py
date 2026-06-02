@@ -15,7 +15,7 @@ R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "mock-key")
 R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "mock-secret")
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL", "http://mock-endpoint")
 R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "novascene-media")
-R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL", "http://mock-public-url")
+R2_CDN_URL = os.environ.get("R2_CDN_URL", "http://mock-public-url")
 
 print("[LTX Worker] Initializing LTXImageToVideoPipeline...")
 repo_id = "Lightricks/LTX-Video"
@@ -45,7 +45,7 @@ def upload_to_r2(file_path: str, key_name: str) -> str:
         ExtraArgs={'ContentType': 'video/mp4'}
     )
     
-    public_url = f"{R2_PUBLIC_URL}/{key_name}"
+    public_url = f"{R2_CDN_URL}/{key_name}"
     print(f"[LTX Worker] Upload complete: {public_url}")
     return public_url
 
