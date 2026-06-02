@@ -39,15 +39,13 @@ export interface OrchestratorProgressUpdate {
 export class NovaSceneOrchestrator {
   constructor(private provider: VideoProvider) {}
 
-  async splitPromptIntoScenes(prompt: string): Promise<SceneDefinition[]> {
+  async splitPromptIntoScenes(prompt: string, targetDuration: number): Promise<SceneDefinition[]> {
     console.log(`[Orchestrator] Splitting prompt using LLM engine: "${prompt}"`);
     // Simulate LLM parse latency
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
     return [
-      { sceneIndex: 1, duration: 4, prompt: `Establishing shot of ${prompt}` },
-      { sceneIndex: 2, duration: 5, prompt: `Close up detail of ${prompt}` },
-      { sceneIndex: 3, duration: 6, prompt: `Dynamic panning shot of ${prompt}` }
+      { sceneIndex: 0, duration: targetDuration, prompt: prompt }
     ];
   }
 
@@ -109,6 +107,7 @@ export class NovaSceneOrchestrator {
   async executeJob(
     jobId: string,
     originalPrompt: string,
+    targetDuration: number = 15,
     includeAudio: boolean = false,
     audioPrompt: string = "",
     videoEngine: string = "wan",
@@ -121,7 +120,7 @@ export class NovaSceneOrchestrator {
       if (onProgress) {
         onProgress({ status: 'analyzing', progress: 10 });
       }
-      const scenes = await this.splitPromptIntoScenes(originalPrompt);
+      const scenes = await this.splitPromptIntoScenes(originalPrompt, targetDuration);
       
       // 2. Initialize scene tracking
       const scenesList: OrchestratorScene[] = scenes.map((s) => ({

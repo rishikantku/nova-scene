@@ -82,7 +82,7 @@ function notifyClients(jobId: string) {
 }
 
 // Background simulation of the rendering pipeline
-async function simulateJobPipeline(jobId: string, prompt: string, includeAudio: boolean = false, audioPrompt: string = "", videoEngine: string = "wan") {
+async function simulateJobPipeline(jobId: string, prompt: string, duration: number = 15, includeAudio: boolean = false, audioPrompt: string = "", videoEngine: string = "wan") {
   console.log(`[Pipeline] Beginning execution for job ${jobId}`);
   const job = MOCK_JOBS[jobId];
   if (!job) {
@@ -112,7 +112,7 @@ async function simulateJobPipeline(jobId: string, prompt: string, includeAudio: 
   const orchestrator = new NovaSceneOrchestrator(provider);
 
   try {
-    await orchestrator.executeJob(jobId, prompt, includeAudio, audioPrompt, videoEngine, (update) => {
+    await orchestrator.executeJob(jobId, prompt, duration, includeAudio, audioPrompt, videoEngine, (update) => {
       // Map progress updates back to the job record
       if (update.status) job.status = update.status;
       if (update.progress !== undefined) job.progress = update.progress;
@@ -145,8 +145,9 @@ async function simulateJobPipeline(jobId: string, prompt: string, includeAudio: 
 }
 
 app.post('/api/v1/jobs', (req: Request, res: Response) => {
-  const { prompt, include_audio, audio_prompt, video_engine } = req.body;
-  console.log(`[POST] /api/v1/jobs received prompt: "${prompt}" (Engine: ${video_engine || 'wan'})`);
+  const { prompt, duration_target, include_audio, audio_prompt, video_engine } = req.body;
+  const duration = duration_target || 15;
+  console.log(`[POST] /api/v1/jobs received prompt: "${prompt}" (Engine: ${video_engine || 'wan'}, Duration: ${duration}s)`);
   if (!prompt) {
     console.log(`[POST] Error: prompt missing in body`);
     return res.status(400).json({ error: 'Prompt is required' });
@@ -171,7 +172,7 @@ app.post('/api/v1/jobs', (req: Request, res: Response) => {
 
   // Trigger non-blocking async process
   console.log(`[POST] Job ${jobId} initialized. Starting background pipeline...`);
-  simulateJobPipeline(jobId, prompt, include_audio, audio_prompt, video_engine || "wan");
+  simulateJobPipeline(jobId, prompt, duration, include_audio, audio_prompt, video_engine || "wan");
 
   return res.status(202).json({
     job_id: jobId,
