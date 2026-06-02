@@ -143,5 +143,17 @@ def handler(job):
 
 if __name__ == "__main__":
     # Ensure ComfyUI is running in the background before starting the RunPod serverless handler
+    print("[ComfyUI Worker] Waiting for ComfyUI server to start...")
+    max_retries = 60
+    for i in range(max_retries):
+        try:
+            with urllib.request.urlopen(f"{COMFYUI_SERVER}/system_stats") as response:
+                print("[ComfyUI Worker] ComfyUI server is up and running!")
+                break
+        except Exception:
+            time.sleep(1)
+    else:
+        print("[ComfyUI Worker] WARNING: ComfyUI server failed to start within 60 seconds.")
+
     print("[ComfyUI Worker] Starting RunPod Serverless Handler...")
     runpod.serverless.start({"handler": handler})
