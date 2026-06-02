@@ -37,3 +37,4 @@ COPY worker/src/wan_handler.py ./wan_handler.py
 
 # Wan 2.1 entry point
 CMD ["python", "-u", "wan_handler.py"]
+# cache bust to fix runpod layer corruption

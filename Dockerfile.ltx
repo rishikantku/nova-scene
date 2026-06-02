@@ -37,3 +37,4 @@ COPY worker/src/ltx_handler.py ./ltx_handler.py
 
 # LTX entry point
 CMD ["python", "-u", "ltx_handler.py"]
+# cache bust to fix runpod layer corruption

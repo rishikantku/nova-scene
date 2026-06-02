@@ -29,3 +29,4 @@ COPY worker/src/wan_handler.py ./wan_handler.py
 
 # Default entry point (overridden in RunPod serverless console)
 CMD ["python", "-u", "flux_handler.py"]
+# cache bust to fix runpod layer corruption

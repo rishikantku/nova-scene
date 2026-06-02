@@ -38,3 +38,4 @@ COPY worker/src/audio_handler.py ./audio_handler.py
 
 # AudioLDM2 entry point
 CMD ["python", "-u", "audio_handler.py"]
+# cache bust to fix runpod layer corruption
