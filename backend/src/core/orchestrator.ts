@@ -40,21 +40,81 @@ export class NovaSceneOrchestrator {
   constructor(private provider: VideoProvider) {}
 
   async splitPromptIntoScenes(prompt: string, targetDuration: number): Promise<SceneDefinition[]> {
-    console.log(`[Orchestrator] Splitting prompt using LLM engine: "${prompt}"`);
-    // Simulate LLM parse latency
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    console.log(`[Orchestrator] Splitting prompt using LLM Director: "${prompt}"`);
     
     const maxChunkDuration = 5;
+    const numScenes = Math.ceil(targetDuration / maxChunkDuration);
     const scenes: SceneDefinition[] = [];
+    
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey) {
+      console.log(`[Orchestrator] OpenAI API Key found, calling GPT-4o...`);
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [
+              { 
+                role: "system", 
+                content: `You are an expert cinematic AI video director. The user will provide a master prompt for a video sequence. Your job is to break it down into ${numScenes} distinct scenes. Each scene prompt MUST focus on a different aspect of the story or use a different camera angle (e.g. establishing shot, close up, tracking shot) to create a dynamic cinematic montage. Ensure the character/subject description remains highly consistent across all prompts. Return a JSON object with a single key "scenes" containing an array of exactly ${numScenes} strings.`
+              },
+              { role: "user", content: `Master prompt: ${prompt}` }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+
+        if (response.ok) {
+          const data: any = await response.json();
+          const parsed = JSON.parse(data.choices[0].message.content);
+          if (parsed.scenes && Array.isArray(parsed.scenes)) {
+            console.log(`[Orchestrator] Successfully generated ${parsed.scenes.length} distinct scenes via OpenAI.`);
+            let remaining = targetDuration;
+            for (let i = 0; i < numScenes; i++) {
+              const chunk = Math.min(maxChunkDuration, remaining);
+              scenes.push({
+                sceneIndex: i,
+                duration: chunk,
+                prompt: parsed.scenes[i] || `${prompt} (Scene ${i+1})`
+              });
+              remaining -= chunk;
+            }
+            return scenes;
+          }
+        } else {
+          console.error("[Orchestrator] OpenAI API error:", await response.text());
+        }
+      } catch (err: any) {
+        console.error("[Orchestrator] OpenAI LLM failed:", err.message);
+      }
+    } else {
+      console.log(`[Orchestrator] No OPENAI_API_KEY found, falling back to rule-based generation.`);
+    }
+    
+    // Fallback logic
+    console.log(`[Orchestrator] Using rule-based fallback...`);
     let remaining = targetDuration;
     let index = 0;
     
+    const cameraAngles = [
+      "Wide establishing shot, cinematic composition. ",
+      "Medium shot, dynamic camera movement. ",
+      "Close up, detailed focus on the subject. ",
+      "Tracking shot, smooth motion. "
+    ];
+    
     while (remaining > 0) {
       const chunk = Math.min(maxChunkDuration, remaining);
+      const anglePrefix = cameraAngles[index % cameraAngles.length];
       scenes.push({
         sceneIndex: index,
         duration: chunk,
-        prompt: prompt // In the future, dynamically evolve prompt per scene
+        prompt: `${anglePrefix}${prompt}`
       });
       remaining -= chunk;
       index++;
