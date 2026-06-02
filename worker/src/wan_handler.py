@@ -3,6 +3,7 @@ import os
 import time
 import uuid
 import requests
+import math
 import boto3
 import certifi
 import torch
@@ -101,69 +102,64 @@ def handler(job):
         input_image = download_image(image_url)
         # Scale to match target resolution (e.g. 832x480 for Wan 2.1 480P model)
         input_image = input_image.resize((832, 480))
-        # --- The Continuous 15s Generation Trick ---
-        # If the requested duration is long (e.g. 10s or 15s), generating 240 frames natively 
-        # will cause an OOM even on an 80GB H100. So we use the Low-FPS + Upsampling trick!
-        if duration >= 10:
-            base_fps = 4  # Generate at 4 frames per second
-            target_fps = fps # The final smooth FPS (usually 16 or 24)
-            num_frames = (duration * base_fps) + 1 # 15s * 4fps = 61 frames
-            
-            print(f"[Wan Worker] LONG VIDEO TRICK: Generating {num_frames} frames at {base_fps} FPS. Will upsample to {target_fps} FPS later.")
-        else:
-            base_fps = fps
-            target_fps = fps
-            num_frames = (duration * fps) + 1
-            
-        print(f"[Wan Worker] Running motion generation for prompt: \"{prompt}\"")
+        # --- Autoregressive Chaining Trick ---
+        # Instead of interpolating, we break long durations into 5-second chunks
+        # and feed the last frame of the previous chunk into the next chunk!
+        chunk_duration = 5
+        total_chunks = max(1, math.ceil(duration / chunk_duration))
+        
+        all_video_frames = []
+        current_input_image = input_image
+        
+        print(f"[Wan Worker] Starting Autoregressive Chaining for {duration}s video ({total_chunks} chunks at {fps} FPS)")
         start_time = time.time()
         
-        # Run Wan I2V generation
-        video_frames = pipeline(
-            input_image,
-            prompt,
-            num_frames=num_frames,
-            num_inference_steps=num_inference_steps
-        ).frames[0]
-        
+        for i in range(total_chunks):
+            print(f"[Wan Worker] Generating Chunk {i+1}/{total_chunks}...")
+            
+            # Determine how many frames this chunk needs (last chunk might be shorter)
+            remaining_duration = duration - (i * chunk_duration)
+            current_duration = min(chunk_duration, remaining_duration)
+            # Diffusers Wan2.1 requires num_frames - 1 to be divisible by 4.
+            # E.g. for 5s at 16fps: 5*16 = 80. Nearest valid is 81.
+            current_num_frames = int(current_duration * fps) + 1
+            
+            # Ensure divisible by 4 rule:
+            while (current_num_frames - 1) % 4 != 0:
+                current_num_frames += 1
+            
+            chunk_output_frames = pipeline(
+                current_input_image,
+                prompt,
+                num_frames=current_num_frames,
+                num_inference_steps=num_inference_steps
+            ).frames[0]
+            
+            if i == 0:
+                all_video_frames.extend(chunk_output_frames)
+            else:
+                # Drop the first frame to avoid duplicate overlapping frames
+                all_video_frames.extend(chunk_output_frames[1:])
+            
+            # Set the very last generated frame as the starting image for the next chunk
+            if i < total_chunks - 1:
+                current_input_image = chunk_output_frames[-1]
+                
         inference_time = time.time() - start_time
         print(f"[Wan Worker] Inference completed in {inference_time:.2f} seconds.")
         
         # Save temp video file locally
-        temp_filename = f"motion_raw_{uuid.uuid4()}.mp4"
+        temp_filename = f"motion_chained_{uuid.uuid4()}.mp4"
         temp_path = os.path.join("/tmp", temp_filename)
-        export_to_video(video_frames, temp_path, fps=base_fps)
-        
-        final_path = temp_path
-        
-        # If we used the Low-FPS trick, we must run FFmpeg AI Interpolation to smooth it out!
-        if duration >= 10:
-            print(f"[Wan Worker] Applying FFmpeg Motion-Compensated Interpolation to smooth from {base_fps} FPS to {target_fps} FPS...")
-            interpolated_filename = f"motion_smooth_{uuid.uuid4()}.mp4"
-            interpolated_path = os.path.join("/tmp", interpolated_filename)
-            
-            # Using FFmpeg's 'minterpolate' with Motion Compensated Interpolation (mci)
-            import subprocess
-            ffmpeg_cmd = [
-                "ffmpeg", "-y", "-i", temp_path,
-                "-filter:v", f"minterpolate='fps={target_fps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1'",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                interpolated_path
-            ]
-            subprocess.run(ffmpeg_cmd, check=True)
-            print("[Wan Worker] FFmpeg interpolation complete!")
-            
-            final_path = interpolated_path
+        export_to_video(all_video_frames, temp_path, fps=fps)
         
         # Upload final video clip to R2
         r2_key = f"scenes/motion_{uuid.uuid4()}.mp4"
-        public_url = upload_to_r2(final_path, r2_key)
+        public_url = upload_to_r2(temp_path, r2_key)
         
         # Clean up local files
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        if duration >= 10 and os.path.exists(final_path):
-            os.remove(final_path)
             
         return {"video_url": public_url}
         
