@@ -13,14 +13,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python dependencies
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cu124 \
     torch==2.6.0 \
+    torchvision==0.21.0 \
+    torchaudio==2.6.0 \
     runpod==1.6.2 \
     diffusers==0.38.0 \
     transformers==4.48.0 \
     accelerate==0.34.0 \
     boto3==1.34.50 \
     requests==2.31.0 \
+    pillow==10.2.0 \
+    imageio[ffmpeg]==2.34.0 \
+    sentencepiece==0.2.0 \
+    protobuf==4.25.3 \
+    certifi \
+    ftfy==6.1.3 \
     scipy==1.13.0 \
-    certifi
+    soundfile==0.12.1
 
 # Copy the Audio handler
 COPY worker/src/audio_handler.py ./audio_handler.py
