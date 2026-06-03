@@ -39,7 +39,7 @@ def get_pipeline():
         else:
             print("[Flux Worker] WARNING: HF_TOKEN environment variable is not set!")
             
-        # Load Flux Schnell (speed-optimized) or Dev
+        # Load Flux Schnell (speed-optimized)
         model_id = "black-forest-labs/FLUX.1-schnell"
         
         pipe = FluxPipeline.from_pretrained(
@@ -49,11 +49,18 @@ def get_pipeline():
             token=hf_token
         )
         
+        # Inject Uncensored LoRA to bypass Flux safety training
+        lora_id = "enhanceaiteam/Flux-uncensored"
+        print(f"[Flux Worker] Injecting NSFW/Uncensored LoRA: {lora_id}")
+        try:
+            pipe.load_lora_weights(lora_id)
+            print("[Flux Worker] LoRA loaded successfully.")
+        except Exception as e:
+            print(f"[Flux Worker] WARNING: Could not load LoRA (it may require an HF_TOKEN): {e}")
+        
         # Enable CPU offloading to avoid CUDA OOM on 24GB GPUs.
-        # FLUX.1-schnell weights (~22.6GB bfloat16) exceed 24GB when fully
-        # resident on GPU. Offloading swaps layers to RAM when not in use.
         pipe.enable_model_cpu_offload()
-        print("[Flux Worker] Model loaded with CPU offloading enabled (24GB VRAM compatible).")
+        print("[Flux Worker] Model loaded with CPU offloading enabled.")
     return pipe
 
 def upload_to_r2(local_path: str, bucket_key: str) -> str:
