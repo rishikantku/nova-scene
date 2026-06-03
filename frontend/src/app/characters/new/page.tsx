@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowLeft, Loader2, UserPlus } from "lucide-react";
+import { Sparkles, ArrowLeft, Loader2, UserPlus, Crown } from "lucide-react";
 import Link from "next/link";
 
 export default function NewCharacter() {
@@ -14,7 +14,8 @@ export default function NewCharacter() {
     gender: "female",
     appearance: "",
     outfit: "",
-    visualStyle: "Cinematic"
+    visualStyle: "Cinematic",
+    enableLora: false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,8 +129,51 @@ export default function NewCharacter() {
             </div>
           </div>
 
-          <div className="mt-6 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-300 leading-relaxed">
-            <strong>How it works:</strong> When you hit generate, Flux will create a highly detailed reference portrait of this character. This exact image will be saved in your library and injected as a strict reference into all future video generations, guaranteeing 100% facial and outfit consistency across your entire story timeline!
+          {/* LoRA Premium Toggle */}
+          <div 
+            onClick={() => {
+              if (!formData.enableLora) {
+                const confirmed = confirm(
+                  "⚠️ Premium LoRA Training\n\n" +
+                  "This will train a custom AI model for this character.\n\n" +
+                  "• Cost: ~$1-3 per character (GPU usage)\n" +
+                  "• Time: 15-30 minutes\n" +
+                  "• Benefit: Pixel-perfect consistency across all scenes\n\n" +
+                  "Standard mode (free) uses prompt-based consistency which works well for most use cases.\n\n" +
+                  "Do you want to enable Premium mode?"
+                );
+                if (!confirmed) return;
+              }
+              setFormData({...formData, enableLora: !formData.enableLora});
+            }}
+            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+              formData.enableLora 
+                ? 'bg-amber-500/10 border-amber-500/30' 
+                : 'bg-[#121118]/50 border-white/5 hover:border-white/10'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-5 rounded-full relative transition-all ${formData.enableLora ? 'bg-amber-500' : 'bg-zinc-700'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${formData.enableLora ? 'left-5' : 'left-0.5'}`} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Crown className={`w-4 h-4 ${formData.enableLora ? 'text-amber-400' : 'text-zinc-600'}`} />
+                <span className={`text-sm font-semibold ${formData.enableLora ? 'text-amber-300' : 'text-zinc-400'}`}>
+                  Premium Consistency (LoRA Training)
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-2 ml-[52px]">
+              {formData.enableLora 
+                ? "Multi-angle reference sheet + AI fine-tuning. Takes ~15-30 min. Best for recurring characters." 
+                : "Standard mode: Single portrait + prompt-based consistency. Instant and free."}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-300 leading-relaxed">
+            <strong>How it works:</strong> {formData.enableLora 
+              ? "Flux will generate a multi-angle reference sheet and train a custom LoRA model for pixel-perfect consistency across all scenes. This takes 15-30 minutes but guarantees identical character reproduction."
+              : "Flux will generate a clean portrait of your character. GPT-4o will inject the character's full description into every scene prompt to maintain consistency across your story."}
           </div>
 
           <button
@@ -140,7 +184,7 @@ export default function NewCharacter() {
             {isGenerating ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Generating Canonical Character Sheet... (This may take a minute)</span>
+                <span>{formData.enableLora ? "Training LoRA Model... (15-30 min)" : "Generating Portrait..."}</span>
               </>
             ) : (
               <>

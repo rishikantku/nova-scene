@@ -10,6 +10,7 @@ interface Character {
   name: string;
   visualStyle: string;
   imageUrl: string | null;
+  loraStatus?: string;
 }
 
 export default function StoryWizard() {
@@ -236,10 +237,13 @@ export default function StoryWizard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {libraryCharacters.map(char => {
                   const isSelected = selectedCastIds.includes(char.id);
+                  const isTraining = ['generating_dataset', 'training'].includes(char.loraStatus || '');
+                  
                   return (
                     <div 
                       key={char.id}
                       onClick={() => {
+                        if (isTraining) return; // Prevent selection
                         // For MVP, we only allow 1 primary character
                         if (isSelected) {
                           setSelectedCastIds([]);
@@ -247,18 +251,29 @@ export default function StoryWizard() {
                           setSelectedCastIds([char.id]);
                         }
                       }}
-                      className={`relative cursor-pointer rounded-2xl overflow-hidden border-2 transition-all duration-300 aspect-[3/4] group ${
-                        isSelected ? 'border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.3)] scale-[1.02]' : 'border-white/10 hover:border-white/30'
+                      className={`relative rounded-2xl overflow-hidden border-2 transition-all duration-300 aspect-[3/4] group ${
+                        isTraining ? 'opacity-50 cursor-not-allowed border-white/5' : 
+                        isSelected ? 'border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.3)] scale-[1.02] cursor-pointer' : 
+                        'border-white/10 hover:border-white/30 cursor-pointer'
                       }`}
                     >
                       {char.imageUrl ? (
-                        <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover" />
+                        <img src={char.imageUrl} alt={char.name} className={`w-full h-full object-cover ${isTraining ? 'grayscale' : ''}`} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-700">
                           <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                       )}
                       
+                      {isTraining && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10">
+                          <Loader2 className="w-6 h-6 text-amber-400 animate-spin mb-2" />
+                          <span className="text-amber-400 font-bold text-[10px] uppercase text-center px-2">
+                            Model<br/>Training...
+                          </span>
+                        </div>
+                      )}
+
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
                         <h3 className="text-white font-bold text-sm leading-tight">{char.name}</h3>
                       </div>

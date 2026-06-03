@@ -1,25 +1,15 @@
 {
   "jobs": {},
   "characters": {
-    "dbe883d6-b23f-4487-8f1c-39d2c4ab55da": {
-      "id": "dbe883d6-b23f-4487-8f1c-39d2c4ab55da",
+    "e2efc1dc-3914-4faf-aeff-11dace37eee1": {
+      "id": "e2efc1dc-3914-4faf-aeff-11dace37eee1",
       "name": "Tamatar",
       "gender": "female",
-      "appearance": "A cute, bubbly 2 year girl. Very cute, adventorous and notorious.",
-      "outfit": "Cute kid outfit",
+      "appearance": "A 2 year old Indian baby girl, very smart, bubbly, cute, and intelligent as well as notorious.",
+      "outfit": "Cute colorful outfit",
       "visualStyle": "Pixar 3D Animation",
-      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_00ea93e2-8fd4-45e6-9b32-094831ac7ea9.jpg",
-      "createdAt": "2026-06-02T20:41:34.968Z"
-    },
-    "356b625f-5be2-4253-8557-eb10594a1f57": {
-      "id": "356b625f-5be2-4253-8557-eb10594a1f57",
-      "name": "Tamatar",
-      "gender": "female",
-      "appearance": "A cute bubblly with curly hair 2 year old indian girl. Very cute, smart and notorious",
-      "outfit": "Cute outfits, colorful",
-      "visualStyle": "Pixar 3D Animation",
-      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_9c5a65a8-152c-4042-9202-97342fb08688.jpg",
-      "createdAt": "2026-06-03T19:05:59.667Z"
+      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_ab2b0ca0-c1c9-4dfe-a0c7-80d4c3e1ee66.jpg",
+      "createdAt": "2026-06-03T20:59:48.568Z"
     }
   },
   "stories": {
@@ -65,6 +55,18 @@
       ],
       "createdAt": "2026-06-02T20:43:45.074Z",
       "finalVideoUrl": "http://localhost:8000/static/final_301888a5-b28b-4f57-b6ee-91f656a509ec.mp4"
+    },
+    "b7d7d70e-1668-46ff-9b00-413ef4b0d5bc": {
+      "id": "b7d7d70e-1668-46ff-9b00-413ef4b0d5bc",
+      "title": "Tamatar visiting circus for the first time. Suddely circus caught fire. Tamatar rescued all animals",
+      "genre": "Cinematic",
+      "visualStyle": "Pixar 3D",
+      "targetDuration": 10,
+      "videoEngine": "wan",
+      "castIds": [],
+      "status": "draft",
+      "scenes": [],
+      "createdAt": "2026-06-03T21:01:35.426Z"
     }
   },
   "loras": {}

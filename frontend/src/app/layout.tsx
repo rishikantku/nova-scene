@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import { Sidebar } from "@/components/Sidebar";
+import { GlobalActivityBar } from "@/components/GlobalActivityBar";
 
 export default function RootLayout({
   children,
@@ -38,6 +39,7 @@ export default function RootLayout({
           <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-blue-600/15 rounded-full blur-[100px] mix-blend-screen"></div>
         </div>
 
+        <GlobalActivityBar />
         <Sidebar />
         <main className="flex-1 min-w-0 overflow-y-auto">
           {children}
