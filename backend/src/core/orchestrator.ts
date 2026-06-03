@@ -46,7 +46,7 @@ export class NovaSceneOrchestrator {
   async splitPromptIntoScenes(prompt: string, targetDuration: number, visualStyle: string = "Cinematic"): Promise<SceneDefinition[]> {
     console.log(`[Orchestrator] Splitting prompt using LLM Director: "${prompt}" (Style: ${visualStyle})`);
     
-    const maxChunkDuration = 5;
+    const maxChunkDuration = 3;
     const numScenes = Math.ceil(targetDuration / maxChunkDuration);
     const scenes: SceneDefinition[] = [];
     
@@ -67,7 +67,7 @@ export class NovaSceneOrchestrator {
                 role: "system", 
                 content: `You are an expert cinematic AI video director and storyteller. The user will provide a master prompt for a video sequence of exactly ${targetDuration} seconds. Your job is to break it down into a sequence of distinct cut scenes.
 Rules:
-1. Each scene MUST have a duration between 2 and 5 seconds (MAXIMUM 5 seconds due to GPU memory limits).
+1. Each scene MUST have a duration between 2 and 3 seconds (MAXIMUM 3 seconds due to GPU memory limits).
 2. The total sum of all scene durations MUST exactly equal ${targetDuration} seconds.
 3. The user has selected the visual style: "${visualStyle}". You MUST explicitly prepend the exact visual style AND the full, detailed character/subject description to EVERY SINGLE SCENE PROMPT you generate.
 4. DO NOT omit character details in subsequent scenes. Every scene prompt must be a fully standalone description capable of generating the exact same character in the exact same style.
@@ -94,8 +94,8 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
               // Ensure we don't exceed the target duration
               if (runningTotal >= targetDuration) break;
               
-              // Clamp duration between 1 and 5 seconds, and ensure we don't exceed the remaining target duration
-              let safeDuration = Math.min(Math.max(Number(s.duration) || 5, 1), 5);
+              // Clamp duration between 1 and 3 seconds, and ensure we don't exceed the remaining target duration
+              let safeDuration = Math.min(Math.max(Number(s.duration) || 3, 1), 3);
               safeDuration = Math.min(safeDuration, targetDuration - runningTotal);
               
               scenes.push({
@@ -109,7 +109,7 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
             
             // If the LLM came up short, pad it
             while (runningTotal < targetDuration) {
-               const padDuration = Math.min(5, targetDuration - runningTotal);
+               const padDuration = Math.min(3, targetDuration - runningTotal);
                scenes.push({
                  sceneIndex: scenes.length,
                  duration: padDuration,
@@ -316,8 +316,9 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
         }
       };
 
-      // 3. Render all scene segments in parallel, AND audio if requested
-      const renderTasks = scenesList.map(async (scene) => {
+      // 3. Render all scene segments sequentially to prevent GPU OOM
+      const videoUrls: string[] = [];
+      for (const scene of scenesList) {
         let imageUrl = scene.imageUrl;
         
         if (!imageUrl) {
@@ -333,7 +334,7 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
           imageUrl
         });
 
-        // Generate Motion Clip
+        // Generate Motion Clip sequentially
         const options: any = {};
         if (scene.loraSafetensorsUrl) {
            options.lora_safetensors_url = scene.loraSafetensorsUrl;
@@ -345,14 +346,15 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
             finalPrompt = `${scene.loraTriggerToken}, ${finalPrompt}`;
         }
         
+        console.log(`[Orchestrator] Rendering video for scene ${scene.index}...`);
         const videoUrl = await this.provider.generateMotion(imageUrl, finalPrompt, scene.duration, videoEngine, options);
         updateSceneAndNotify(scene.index, {
           status: 'completed',
           videoUrl
         });
 
-        return videoUrl;
-      });
+        videoUrls.push(videoUrl);
+      }
 
       // Audio generation Promise (background music/SFX)
       let audioPromise: Promise<string | undefined> = Promise.resolve(undefined);
@@ -385,8 +387,8 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
         }
       }
 
-      const [videoUrls, generatedAudioUrl, generatedVoiceoverUrl] = await Promise.all([
-        Promise.all(renderTasks),
+      const [_, generatedAudioUrl, generatedVoiceoverUrl] = await Promise.all([
+        Promise.resolve(), // videoUrls are already resolved sequentially above
         audioPromise,
         voiceoverPromise
       ]);

@@ -151,12 +151,55 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
           <h1 className="text-4xl font-extrabold text-white mb-2">{story.title}</h1>
         </header>
 
-        <div className="w-full aspect-video bg-black rounded-3xl border-2 border-white/10 shadow-[0_0_80px_rgba(217,70,239,0.15)] overflow-hidden mb-8 relative group">
+        <div className="w-full aspect-video bg-black rounded-3xl border-2 border-white/10 shadow-[0_0_80px_rgba(217,70,239,0.15)] overflow-hidden mb-12 relative group">
            <video src={story.finalVideoUrl} controls className="w-full h-full object-cover" autoPlay />
         </div>
         
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Individual Scenes</h2>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+          {story.scenes.map((scene, i) => (
+            <div key={scene.id} className="bg-[#121118]/80 border border-white/10 rounded-3xl overflow-hidden shadow-xl group">
+              <div className="aspect-[16/9] bg-zinc-900 relative">
+                {scene.videoUrl ? (
+                  <video 
+                    src={scene.videoUrl} 
+                    className="w-full h-full object-cover"
+                    controls 
+                  />
+                ) : scene.imageUrl ? (
+                  <img src={scene.imageUrl} alt="Scene Reference" className="w-full h-full object-cover opacity-80" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-zinc-700">
+                    <Film className="w-8 h-8 mb-2 opacity-50" />
+                  </div>
+                )}
+                {!scene.videoUrl && (
+                  <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded-md border border-white/10">
+                    {scene.duration}s
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-violet-400">Scene {i + 1}</span>
+                </div>
+                <textarea 
+                  readOnly
+                  value={scene.prompt}
+                  className="w-full bg-black/30 border border-white/5 rounded-xl px-4 py-3 text-xs text-zinc-300 leading-relaxed resize-none focus:outline-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="flex justify-center">
-          <Link href="/" className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-bold transition-colors">
+          <Link href="/stories" className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-bold transition-colors">
             Back to Dashboard
           </Link>
         </div>

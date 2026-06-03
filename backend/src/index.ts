@@ -854,7 +854,15 @@ app.post('/api/v1/stories', (req: Request, res: Response) => {
   };
 
   MOCK_STORIES[storyId] = newStory;
+  saveDb();
   return res.status(201).json(newStory);
+});
+
+app.get('/api/v1/stories', (req: Request, res: Response) => {
+  const stories = Object.values(MOCK_STORIES).sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  return res.json({ stories });
 });
 
 app.get('/api/v1/stories/:story_id', (req: Request, res: Response) => {
@@ -902,7 +910,8 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
     const mainChar = MOCK_CHARACTERS[story.castIds[0]];
     if (mainChar) {
        primaryCharacterUrl = mainChar.imageUrl;
-       characterContext = `The main character is ${mainChar.name}. Appearance: ${mainChar.appearance}. Wearing: ${mainChar.outfit}. `;
+       // Make the character context extremely descriptive and rigid so Flux doesn't hallucinate
+       characterContext = `(Masterpiece, best quality, highly detailed). Main subject: ${mainChar.name}. Appearance: ${mainChar.appearance}. Outfit: ${mainChar.outfit}. `;
     }
   }
 
@@ -914,18 +923,24 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
     console.log(`[Stories] Generating board for ${story.id}...`);
     const scenes = await orchestrator.splitPromptIntoScenes(prompt, story.targetDuration, story.visualStyle);
     
-    story.scenes = scenes.map((s) => ({
-      id: `scene-${s.sceneIndex}-${crypto.randomUUID()}`,
-      index: s.sceneIndex,
-      prompt: s.prompt,
-      duration: s.duration,
-      status: 'pending',
+    story.scenes = scenes.map((s) => {
+      // Programmatically enforce the exact character description on every single prompt
+      // Put the action FIRST so that the 77-token CLIP limit doesn't truncate the core action!
+      const finalPrompt = characterContext ? `Action: ${s.prompt} | Character details: ${characterContext}` : s.prompt;
+      
+      return {
+        id: `scene-${s.sceneIndex}-${crypto.randomUUID()}`,
+        index: s.sceneIndex,
+        prompt: finalPrompt,
+        duration: s.duration,
+        status: 'pending',
       // Don't inject the multi-panel character sheet — it's a composite reference
       // image (front/side/3-4 views) that would produce weird I2V results.
       // Instead, let Flux generate a scene-specific keyframe per scene.
       // Character consistency is maintained via the LoRA trigger token.
-      imageUrl: null 
-    }));
+        imageUrl: null 
+      };
+    });
 
     story.status = 'board_ready';
     console.log(`[Stories] Board generated for ${story.id} with ${story.scenes.length} scenes.`);

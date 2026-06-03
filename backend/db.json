@@ -1,15 +1,15 @@
 {
   "jobs": {},
   "characters": {
-    "e2efc1dc-3914-4faf-aeff-11dace37eee1": {
-      "id": "e2efc1dc-3914-4faf-aeff-11dace37eee1",
+    "56cbbb80-d4c4-4fe5-b60c-30ce4c152736": {
+      "id": "56cbbb80-d4c4-4fe5-b60c-30ce4c152736",
       "name": "Tamatar",
       "gender": "female",
-      "appearance": "A 2 year old Indian baby girl, very smart, bubbly, cute, and intelligent as well as notorious.",
-      "outfit": "Cute colorful outfit",
+      "appearance": "a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.",
+      "outfit": "Cute and coloful outfits",
       "visualStyle": "Pixar 3D Animation",
-      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_ab2b0ca0-c1c9-4dfe-a0c7-80d4c3e1ee66.jpg",
-      "createdAt": "2026-06-03T20:59:48.568Z"
+      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_56aa39af-d0b4-419a-a9c7-89af20100786.jpg",
+      "createdAt": "2026-06-03T21:18:59.322Z"
     }
   },
   "stories": {
@@ -67,6 +67,93 @@
       "status": "draft",
       "scenes": [],
       "createdAt": "2026-06-03T21:01:35.426Z"
+    },
+    "c7eebcfe-4ce5-41de-aeff-5caa7fa913cf": {
+      "id": "c7eebcfe-4ce5-41de-aeff-5caa7fa913cf",
+      "title": "Tamatar visiting circus for the first time. Suddely circus caught fire. Tamatar rescued all animals",
+      "genre": "Cinematic",
+      "visualStyle": "Pixar 3D",
+      "targetDuration": 10,
+      "videoEngine": "wan",
+      "castIds": [
+        "56cbbb80-d4c4-4fe5-b60c-30ce4c152736"
+      ],
+      "status": "failed",
+      "scenes": [
+        {
+          "id": "scene-0-10c50469-37be-42e1-b6b6-221a5be35763",
+          "index": 0,
+          "prompt": "Pixar 3D style: A cute, bubbly, 2-year-old Indian girl named Tamatar, very adventurous, attractive, and cute, as well as notorious. She is wearing cute and colorful outfits, standing at the entrance of a vibrant circus tent, with large eyes filled with awe and excitement.",
+          "duration": 3,
+          "status": "generating_motion",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_b9d283b3-ff1c-4fe7-ada2-aed1c55ab8d0.jpg"
+        },
+        {
+          "id": "scene-1-56ea3c01-1dec-4d17-822d-82ac8e537194",
+          "index": 1,
+          "prompt": "Pixar 3D style: Tamatar, a cute and bubbly 2-year-old Indian girl, notorious and adventurous, wearing colorful outfits, is joyfully watching acrobats soar through the air inside a brightly lit circus, her face lit up with pure delight and curiosity.",
+          "duration": 3,
+          "status": "generating_motion",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_ca2fa8ea-72e1-4ac0-b8c7-8375fe41a96a.jpg"
+        },
+        {
+          "id": "scene-2-be80678f-bc71-4830-a45a-63b78ed4dbe5",
+          "index": 2,
+          "prompt": "Pixar 3D style: Tamatar, a cute, bubbly 2-year-old Indian girl, very adventurous and notorious, in colorful outfits, looks around as chaos ensues, with dark smoke starting to rise inside the circus, her expression changing from excitement to concern.",
+          "duration": 2,
+          "status": "generating_motion",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_fe0e0db9-b852-443c-9063-8b75600e2670.jpg"
+        },
+        {
+          "id": "scene-3-e4d3343b-4fa1-48f1-9267-8878781a9198",
+          "index": 3,
+          "prompt": "Pixar 3D style: Tamatar, a cute and bubbly 2-year-old Indian girl, notorious and adventurous in colorful outfits, is courageously confronting the fire, carrying a small but brave expression as she leads a parade of animals to safety through the smoke.",
+          "duration": 2,
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_3eeed9fd-9004-4ea5-add9-2e3bf7d45ad3.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/comfy_66c27e5fa665410ab7c16658653c2202.mp4"
+        }
+      ],
+      "createdAt": "2026-06-03T21:24:14.261Z"
+    },
+    "feaba64c-15d5-4430-b367-e8c16f22e8da": {
+      "id": "feaba64c-15d5-4430-b367-e8c16f22e8da",
+      "title": "Tamatar went for jungle safari. A lion was chasing deer. Tamatar saved deer from lion",
+      "genre": "Cinematic",
+      "visualStyle": "Pixar 3D",
+      "targetDuration": 10,
+      "videoEngine": "wan",
+      "castIds": [
+        "56cbbb80-d4c4-4fe5-b60c-30ce4c152736"
+      ],
+      "status": "failed",
+      "scenes": [
+        {
+          "id": "scene-0-80698ebf-4d9d-43a0-8e8b-67fb15b48a5b",
+          "index": 0,
+          "prompt": "(Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits.  Action: Pixar 3D style: Tamatar, a cute, bubbly, 2-year-old Indian girl, standing excitedly at the edge of a lush jungle. She is adventurous, attractive, wearing a cute, colorful outfit, with eyes wide with curiosity.",
+          "duration": 3,
+          "status": "generating_motion",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_077b399f-3133-4409-977c-613f11ff3f7c.jpg"
+        },
+        {
+          "id": "scene-1-0d6428b2-6ab6-4b4f-b24e-00056f618731",
+          "index": 1,
+          "prompt": "(Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits.  Action: Pixar 3D style: Tamatar, a cute, bubbly, 2-year-old Indian girl, in a colorful outfit, watches with wide eyes as a majestic lion, its mane blowing in the wind, begins chasing a deer through the thick greenery.",
+          "duration": 3,
+          "status": "pending",
+          "imageUrl": null
+        },
+        {
+          "id": "scene-2-b910a234-7b65-4e45-acd9-def651c7946d",
+          "index": 2,
+          "prompt": "(Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits.  Action: Pixar 3D style: Tamatar, a cute, bubbly, 2-year-old Indian girl, displaying her notorious cleverness and heartwarming bravery in her colorful outfit, bravely distracts the lion with a loud shout, diverting its attention away from the fleeing deer.",
+          "duration": 4,
+          "status": "pending",
+          "imageUrl": null
+        }
+      ],
+      "createdAt": "2026-06-03T21:53:16.869Z"
     }
   },
   "loras": {}

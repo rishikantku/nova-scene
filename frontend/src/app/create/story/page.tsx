@@ -153,7 +153,7 @@ export default function StoryWizard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-fuchsia-100/70 font-semibold uppercase tracking-wider">Genre / Tone</label>
                 <input
@@ -187,17 +187,6 @@ export default function StoryWizard() {
                   <option value={10}>10 Seconds (2-3 Scenes)</option>
                   <option value={15}>15 Seconds (3-4 Scenes)</option>
                   <option value={30}>30 Seconds (6-8 Scenes)</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-fuchsia-100/70 font-semibold uppercase tracking-wider">Video Engine</label>
-                <select
-                  value={videoEngine}
-                  onChange={(e) => setVideoEngine(e.target.value)}
-                  className="bg-[#121118]/80 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-fuchsia-500/50 text-white shadow-inner"
-                >
-                  <option value="wan">Wan 2.2 (Cinematic Pro)</option>
-                  <option value="ltx">LTX Video (Fast Draft)</option>
                 </select>
               </div>
             </div>
