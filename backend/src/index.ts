@@ -20,6 +20,7 @@ interface Scene {
   id: string;
   index: number;
   prompt: string;
+  narration?: string;
   duration: number;
   status: 'pending' | 'generating_image' | 'generating_motion' | 'completed' | 'failed';
   imageUrl?: string | null;
@@ -179,6 +180,7 @@ async function simulateJobPlanningPhase(jobId: string, prompt: string, duration:
       id: `scene-${s.sceneIndex}-${crypto.randomUUID()}`,
       index: s.sceneIndex,
       prompt: s.prompt,
+      narration: s.narration || '',
       duration: s.duration,
       status: 'pending'
     }));

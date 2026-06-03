@@ -15,6 +15,11 @@ export interface VideoProvider {
    * Generates a background audio or SFX clip from a text prompt.
    */
   generateAudio(prompt: string, duration: number, options?: Record<string, any>): Promise<string>;
+
+  /**
+   * Generates a voiceover/narration from text using TTS.
+   */
+  generateVoiceover(text: string, voice?: string, options?: Record<string, any>): Promise<string>;
 }
 
 export class MockVideoProvider implements VideoProvider {
@@ -43,7 +48,12 @@ export class MockVideoProvider implements VideoProvider {
   async generateAudio(prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
     console.log(`[MockProvider] Generating AudioLDM2 audio for prompt: "${prompt}"`);
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // Return local playable audio
     return "http://localhost:8000/static/audio.mp3";
+  }
+
+  async generateVoiceover(text: string, voice?: string, options?: Record<string, any>): Promise<string> {
+    console.log(`[MockProvider] Generating voiceover: "${text.substring(0, 50)}..."`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return "http://localhost:8000/static/voiceover.mp3";
   }
 }

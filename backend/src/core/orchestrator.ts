@@ -11,12 +11,14 @@ export interface SceneDefinition {
   sceneIndex: number;
   duration: number;
   prompt: string;
+  narration?: string;
 }
 
 export interface OrchestratorScene {
   id: string;
   index: number;
   prompt: string;
+  narration?: string;
   duration: number;
   status: 'pending' | 'generating_image' | 'generating_motion' | 'completed' | 'failed';
   imageUrl?: string | null;
@@ -63,13 +65,15 @@ export class NovaSceneOrchestrator {
             messages: [
               { 
                 role: "system", 
-                content: `You are an expert cinematic AI video director. The user will provide a master prompt for a video sequence of exactly ${targetDuration} seconds. Your job is to break it down into a sequence of distinct cut scenes.
+                content: `You are an expert cinematic AI video director and storyteller. The user will provide a master prompt for a video sequence of exactly ${targetDuration} seconds. Your job is to break it down into a sequence of distinct cut scenes.
 Rules:
 1. Each scene MUST have a duration between 2 and 5 seconds (MAXIMUM 5 seconds due to GPU memory limits).
 2. The total sum of all scene durations MUST exactly equal ${targetDuration} seconds.
 3. The user has selected the visual style: "${visualStyle}". You MUST explicitly prepend the exact visual style AND the full, detailed character/subject description to EVERY SINGLE SCENE PROMPT you generate.
 4. DO NOT omit character details in subsequent scenes. Every scene prompt must be a fully standalone description capable of generating the exact same character in the exact same style.
-Return a JSON object with a single key "scenes" containing an array of objects, where each object has "duration" (number) and "prompt" (string).`
+5. For each scene, also write a "narration" field: a short voiceover narration line for that scene. This is what a narrator would say over the video. Write the narration in the SAME LANGUAGE as the user's master prompt. If the user writes in Hindi, narrate in Hindi. If English, narrate in English.
+6. The narration should tell a story, not describe camera angles. It should be emotional, immersive, and cinematic.
+Return a JSON object with a single key "scenes" containing an array of objects, where each object has "duration" (number), "prompt" (string), and "narration" (string).`
               },
               { role: "user", content: `Master prompt: ${prompt}` }
             ],
@@ -97,7 +101,8 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
               scenes.push({
                 sceneIndex: i,
                 duration: safeDuration,
-                prompt: s.prompt || `${prompt} (Scene ${i+1})`
+                prompt: s.prompt || `${prompt} (Scene ${i+1})`,
+                narration: s.narration || ''
               });
               runningTotal += safeDuration;
             }
@@ -152,7 +157,7 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
     return scenes;
   }
 
-  async stitchScenes(videoUrls: string[], audioUrl?: string): Promise<string> {
+  async stitchScenes(videoUrls: string[], audioUrl?: string, voiceoverUrl?: string): Promise<string> {
     console.log(`[Orchestrator] Stitching ${videoUrls.length} scene clips...`);
     if (!videoUrls.length) {
       throw new Error('No video clips were generated to stitch.');
@@ -192,20 +197,55 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
         concatenatedVideoPath = localVideoPaths[0];
       }
       
-      // 3. Multiplex Audio if provided
-      if (audioUrl) {
-        console.log(`[Orchestrator] Audio URL provided. Multiplexing audio and video...`);
+      // 3. Mix audio tracks
+      const hasVoiceover = !!voiceoverUrl;
+      const hasMusic = !!audioUrl;
+
+      if (hasVoiceover && hasMusic) {
+        // Mix voiceover (full volume) + music (30% volume) + video
+        console.log(`[Orchestrator] Mixing voiceover + background music...`);
+        const voPath = path.join(tmpDir, `vo_${jobId}.mp3`);
+        const musicPath = path.join(tmpDir, `music_${jobId}.wav`);
+        
+        const [voRes, musicRes] = await Promise.all([fetch(voiceoverUrl), fetch(audioUrl)]);
+        if (!voRes.ok) throw new Error('Failed to download voiceover');
+        if (!musicRes.ok) throw new Error('Failed to download music');
+        
+        await Promise.all([
+          fs.writeFile(voPath, Buffer.from(await voRes.arrayBuffer())),
+          fs.writeFile(musicPath, Buffer.from(await musicRes.arrayBuffer()))
+        ]);
+        
+        // amix: voiceover at full volume, music at 30%
+        const mixCmd = `ffmpeg -y -i "${concatenatedVideoPath}" -i "${voPath}" -i "${musicPath}" -filter_complex "[1:a]volume=1.0[vo];[2:a]volume=0.3[bg];[vo][bg]amix=inputs=2:duration=first[aout]" -map 0:v -map "[aout]" -c:v copy -c:a aac -shortest "${outPathPublic}"`;
+        await execPromise(mixCmd);
+        
+        await fs.unlink(voPath).catch(() => {});
+        await fs.unlink(musicPath).catch(() => {});
+      } else if (hasVoiceover) {
+        // Voiceover only
+        console.log(`[Orchestrator] Adding voiceover to video...`);
+        const voPath = path.join(tmpDir, `vo_${jobId}.mp3`);
+        const voRes = await fetch(voiceoverUrl);
+        if (!voRes.ok) throw new Error('Failed to download voiceover');
+        await fs.writeFile(voPath, Buffer.from(await voRes.arrayBuffer()));
+        
+        const mixCmd = `ffmpeg -y -i "${concatenatedVideoPath}" -i "${voPath}" -c:v copy -c:a aac -shortest "${outPathPublic}"`;
+        await execPromise(mixCmd);
+        await fs.unlink(voPath).catch(() => {});
+      } else if (hasMusic) {
+        // Background music only
+        console.log(`[Orchestrator] Adding background music to video...`);
         const audioPath = path.join(tmpDir, `audio_${jobId}.wav`);
         const audRes = await fetch(audioUrl);
-        if (!audRes.ok) throw new Error("Failed to download audio for stitching");
+        if (!audRes.ok) throw new Error('Failed to download audio for stitching');
         await fs.writeFile(audioPath, Buffer.from(await audRes.arrayBuffer()));
         
-        console.log(`[Orchestrator] Running FFmpeg audio mix job...`);
         const mixCmd = `ffmpeg -y -i "${concatenatedVideoPath}" -i "${audioPath}" -c:v copy -c:a aac -shortest "${outPathPublic}"`;
         await execPromise(mixCmd);
         await fs.unlink(audioPath).catch(() => {});
       } else {
-        // Just move the concatenated video to public directory
+        // No audio — just move video
         await fs.rename(concatenatedVideoPath, outPathPublic).catch(async () => {
             await fs.copyFile(concatenatedVideoPath, outPathPublic);
         });
@@ -314,7 +354,7 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
         return videoUrl;
       });
 
-      // Audio generation Promise
+      // Audio generation Promise (background music/SFX)
       let audioPromise: Promise<string | undefined> = Promise.resolve(undefined);
       if (includeAudio) {
         console.log(`[Orchestrator] Dispatching Audio Task for prompt: "${audioPrompt}"`);
@@ -325,16 +365,37 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
         });
       }
 
-      const [videoUrls, generatedAudioUrl] = await Promise.all([
+      // Voiceover generation Promise (narration from LLM-generated narration text)
+      let voiceoverPromise: Promise<string | undefined> = Promise.resolve(undefined);
+      if (includeAudio) {
+        // Build narration script from scene narrations (not visual prompts)
+        const narrationParts = scenesList
+          .map(s => s.narration)
+          .filter(n => n && n.trim().length > 0);
+        
+        if (narrationParts.length > 0) {
+          const narrationScript = narrationParts.join('. ');
+          console.log(`[Orchestrator] Generating voiceover from ${narrationParts.length} scene narrations...`);
+          voiceoverPromise = this.provider.generateVoiceover(narrationScript, 'nova').catch((err) => {
+            console.error(`[Orchestrator] Voiceover generation failed, continuing without voiceover:`, err.message);
+            return undefined;
+          });
+        } else {
+          console.log(`[Orchestrator] No narration text found in scenes, skipping voiceover.`);
+        }
+      }
+
+      const [videoUrls, generatedAudioUrl, generatedVoiceoverUrl] = await Promise.all([
         Promise.all(renderTasks),
-        audioPromise
+        audioPromise,
+        voiceoverPromise
       ]);
 
-      // 4. Stitch clips
+      // 4. Stitch clips with audio layers
       if (onProgress) {
         onProgress({ status: 'stitching', progress: 85 });
       }
-      const finalVideoUrl = await this.stitchScenes(videoUrls, generatedAudioUrl);
+      const finalVideoUrl = await this.stitchScenes(videoUrls, generatedAudioUrl, generatedVoiceoverUrl);
 
       // 5. Completion
       const totalDuration = scenesList.reduce((acc, s) => acc + s.duration, 0);

@@ -193,4 +193,112 @@ export class RunPodVideoProvider implements VideoProvider {
     const resultUrl = await this.pollJobStatus(this.loraEndpointId, jobId, 3600);
     return resultUrl;
   }
+
+  async generateVoiceover(text: string, voice: string = 'nova', options?: Record<string, any>): Promise<string> {
+    const language = options?.language || 'en';
+    
+    // Auto-detect Hindi/Devanagari script in the text
+    const isIndianLang = ['hi', 'hi-IN', 'bn-IN', 'ta-IN', 'te-IN', 'mr-IN', 'gu-IN', 'kn-IN', 'ml-IN', 'pa-IN', 'od-IN'].includes(language);
+    const hasDevanagari = /[\u0900-\u097F]/.test(text);
+    
+    if ((isIndianLang || hasDevanagari) && process.env.SARVAM_API_KEY) {
+      return this._voiceoverSarvam(text, voice, language);
+    }
+    return this._voiceoverOpenAI(text, voice);
+  }
+
+  private async _voiceoverSarvam(text: string, voice: string, language: string): Promise<string> {
+    const sarvamKey = process.env.SARVAM_API_KEY!;
+    const langCode = language.includes('-') ? language : `${language}-IN`;
+    // Map OpenAI voice names to Sarvam defaults
+    const sarvamVoice = ['alloy','echo','fable','onyx','nova','shimmer'].includes(voice) ? 'priya' : voice;
+
+    console.log(`[TTS/Sarvam] voice=${sarvamVoice}, lang=${langCode}: "${text.substring(0, 80)}..."`);
+
+    const response = await fetch('https://api.sarvam.ai/text-to-speech', {
+      method: 'POST',
+      headers: {
+        'api-subscription-key': sarvamKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text,
+        target_language_code: langCode,
+        speaker: sarvamVoice,
+        model: 'bulbul:v3',
+        pace: 1.0,
+        sample_rate: 24000,
+        audio_format: 'wav'
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Sarvam TTS failed: ${response.statusText} (${errText})`);
+    }
+
+    const data = await response.json() as { audios?: string[] };
+    if (!data.audios || data.audios.length === 0) {
+      throw new Error('Sarvam TTS returned empty audio');
+    }
+
+    const audioBuffer = Buffer.from(data.audios[0], 'base64');
+    return this._uploadVoiceover(audioBuffer, 'audio/wav', 'wav');
+  }
+
+  private async _voiceoverOpenAI(text: string, voice: string): Promise<string> {
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) throw new Error('OPENAI_API_KEY is required for voiceover.');
+
+    console.log(`[TTS/OpenAI] voice=${voice}: "${text.substring(0, 80)}..."`);
+
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'tts-1-hd',
+        input: text,
+        voice,
+        response_format: 'mp3'
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`OpenAI TTS failed: ${response.statusText} (${errText})`);
+    }
+
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    return this._uploadVoiceover(audioBuffer, 'audio/mpeg', 'mp3');
+  }
+
+  private async _uploadVoiceover(audioBuffer: Buffer, contentType: string, ext: string): Promise<string> {
+    const cryptoMod = require('crypto');
+    const filename = `voiceover_${cryptoMod.randomUUID()}.${ext}`;
+
+    const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      region: 'auto',
+      endpoint: process.env.R2_ENDPOINT_URL,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    const r2Key = `scenes/${filename}`;
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: r2Key,
+      Body: audioBuffer,
+      ContentType: contentType,
+    }));
+
+    const publicUrl = `${process.env.R2_CDN_URL}/${r2Key}`;
+    console.log(`[TTS] Voiceover uploaded: ${publicUrl}`);
+    return publicUrl;
+  }
 }
