@@ -1,7 +1,7 @@
 FROM runpod/pytorch:2.2.1-py3.10-cuda12.1.1-devel-ubuntu22.04
 
 WORKDIR /workspace
-RUN echo "cache bust 7"
+RUN echo "cache bust 8"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y git ffmpeg libgl1-mesa-glx && rm -rf /var/lib/apt/lists/*
@@ -25,6 +25,10 @@ RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
 
 # Install runpod SDK for the serverless handler
 RUN pip install runpod boto3 certifi requests
+
+# 🚨 CRITICAL FIX: Custom nodes might stealth-upgrade 'torch' without upgrading 'torchvision'. 
+# This causes the "torchvision::nms does not exist" C++ crash. We MUST synchronize them at the end!
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --upgrade
 
 # Copy our serverless handler
 COPY worker/comfyui/comfy_handler.py /workspace/comfy_handler.py
