@@ -103,14 +103,21 @@ def handler(job):
         print(f"[Flux Worker] Running inference for prompt: \"{prompt}\"")
         start_time = time.time()
         
+        # Check if NSFW is explicitly requested via flag or prompt keywords
+        is_nsfw = job_input.get("nsfw", False) or "nsfw" in prompt.lower() or "uncensored" in prompt.lower()
+        
+        lora_scale = 1.0 if is_nsfw else 0.0
+        enhanced_prompt = prompt + ", uncensored, nsfw" if is_nsfw else prompt
+        
         # Run image generation
         image = pipeline(
-            prompt,
+            enhanced_prompt,
             width=width,
             height=height,
             guidance_scale=guidance_scale,
             num_inference_steps=num_inference_steps,
-            max_sequence_length=256
+            max_sequence_length=256,
+            joint_attention_kwargs={"scale": lora_scale} # Activate LoRA only for NSFW requests
         ).images[0]
         
         inference_time = time.time() - start_time
