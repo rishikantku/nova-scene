@@ -162,6 +162,22 @@ if __name__ == "__main__":
         try:
             with urllib.request.urlopen(f"{COMFYUI_SERVER}/system_stats") as response:
                 print("[ComfyUI Worker] ComfyUI server is up and running!")
+                
+                # Dump schema for each node type used in our workflow
+                node_types = ["WanVideoModelLoader", "WanVideoTextEncode", "WanVideoImageToVideoEncode", 
+                              "WanVideoSampler", "WanVideoDecode", "VHS_VideoCombine", "LoadImage"]
+                for nt in node_types:
+                    try:
+                        with urllib.request.urlopen(f"{COMFYUI_SERVER}/object_info/{nt}") as r:
+                            info = json.loads(r.read())
+                            if nt in info:
+                                inputs = info[nt].get("input", {})
+                                req = list(inputs.get("required", {}).keys())
+                                opt = list(inputs.get("optional", {}).keys())
+                                print(f"[Schema] {nt}: required={req}, optional={opt}")
+                    except Exception as e:
+                        print(f"[Schema] {nt}: FAILED to query ({e})")
+                
                 break
         except Exception:
             time.sleep(1)
