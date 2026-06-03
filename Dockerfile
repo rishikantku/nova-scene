@@ -10,7 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PyTorch, Diffusers, and boto3 for R2 uploads
+# Upgrade PyTorch to 2.6.0 (or latest stable) for explicit RTX 5090 / Blackwell support
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 --upgrade
+
+# Install Diffusers, RunPod SDK, and other requirements
 RUN pip install --no-cache-dir \
     runpod==1.6.2 \
     diffusers==0.32.1 \

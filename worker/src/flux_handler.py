@@ -128,9 +128,16 @@ def handler(job):
             print(f"[Flux Worker] Downloading reference image from {image_prompt_url}...")
             response = requests.get(image_prompt_url)
             if response.status_code == 200:
-                ip_adapter_image = Image.open(BytesIO(response.content)).convert("RGB")
+                img = Image.open(BytesIO(response.content)).convert("RGB")
+                
+                # Resize image if too large to prevent unexpected memory spikes
+                max_dim = 1024
+                if img.width > max_dim or img.height > max_dim:
+                    img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                
+                ip_adapter_image = img
                 pipeline.set_ip_adapter_scale(0.8)
-                print("[Flux Worker] Reference image loaded for IP-Adapter.")
+                print(f"[Flux Worker] Reference image loaded and resized for IP-Adapter ({img.width}x{img.height}).")
             else:
                 print(f"[Flux Worker] Failed to download reference image: HTTP {response.status_code}")
 
