@@ -1,0 +1,71 @@
+{
+  "jobs": {},
+  "characters": {
+    "dbe883d6-b23f-4487-8f1c-39d2c4ab55da": {
+      "id": "dbe883d6-b23f-4487-8f1c-39d2c4ab55da",
+      "name": "Tamatar",
+      "gender": "female",
+      "appearance": "A cute, bubbly 2 year girl. Very cute, adventorous and notorious.",
+      "outfit": "Cute kid outfit",
+      "visualStyle": "Pixar 3D Animation",
+      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_00ea93e2-8fd4-45e6-9b32-094831ac7ea9.jpg",
+      "createdAt": "2026-06-02T20:41:34.968Z"
+    },
+    "356b625f-5be2-4253-8557-eb10594a1f57": {
+      "id": "356b625f-5be2-4253-8557-eb10594a1f57",
+      "name": "Tamatar",
+      "gender": "female",
+      "appearance": "A cute bubblly with curly hair 2 year old indian girl. Very cute, smart and notorious",
+      "outfit": "Cute outfits, colorful",
+      "visualStyle": "Pixar 3D Animation",
+      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_9c5a65a8-152c-4042-9202-97342fb08688.jpg",
+      "createdAt": "2026-06-03T19:05:59.667Z"
+    }
+  },
+  "stories": {
+    "3173af01-c99a-4227-a3f1-8c7b7a7dfa47": {
+      "id": "3173af01-c99a-4227-a3f1-8c7b7a7dfa47",
+      "title": "Tamatar visiting circus for the first time. Suddely circus caught fire. Tamatar rescued all naimals",
+      "genre": "Sci-Fi Thriller",
+      "visualStyle": "Pixar 3D",
+      "targetDuration": 10,
+      "videoEngine": "ltx",
+      "castIds": [
+        "dbe883d6-b23f-4487-8f1c-39d2c4ab55da"
+      ],
+      "status": "completed",
+      "scenes": [
+        {
+          "id": "scene-0-6643ab56-55b9-469b-ad4d-bd6db03ff728",
+          "index": 0,
+          "prompt": "Pixar 3D: In a vibrant, bustling circus tent, Tamatar, a cute, bubbly 2-year-old girl with an adventurous and notorious spirit, explores the wonders of the circus. She wears a delightful kid outfit, her eyes wide with excitement as she gazes at the performers and animals around her.",
+          "duration": 3,
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_00ea93e2-8fd4-45e6-9b32-094831ac7ea9.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/ltx_49c66919-a011-4ef4-9595-713815cf99e7.mp4"
+        },
+        {
+          "id": "scene-1-f01da781-0bee-4294-ab66-fe64ead3b0d3",
+          "index": 1,
+          "prompt": "Pixar 3D: Suddenly, flames erupt at the edge of the circus tent. Tamatar, the adventurous and bubbly 2-year-old girl in a cute kid outfit, notices the commotion as panic sets in. Determined, her expression shifts from wonder to a focused look of resolve, ready to spring into action to address the crisis.",
+          "duration": 3,
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_00ea93e2-8fd4-45e6-9b32-094831ac7ea9.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/ltx_42952c8e-504f-4c72-b888-5109520e0fca.mp4"
+        },
+        {
+          "id": "scene-2-f2fcaabb-6ab2-45f5-b20f-1abd555f1c1a",
+          "index": 2,
+          "prompt": "Pixar 3D: As the fire intensifies, Tamatar, the adorable and spirited 2-year-old girl dressed in her charming kid outfit, takes charge. Ignoring the chaos around her, she bravely guides a line of frantic circus animals to safety. Her quick thinking and leadership shine through, showcasing her as a hero amidst the Sci-Fi thriller's fiery turmoil.",
+          "duration": 4,
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_00ea93e2-8fd4-45e6-9b32-094831ac7ea9.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/ltx_2c987fee-d9d2-4746-ac3b-6ac86aba5a25.mp4"
+        }
+      ],
+      "createdAt": "2026-06-02T20:43:45.074Z",
+      "finalVideoUrl": "http://localhost:8000/static/final_301888a5-b28b-4f57-b6ee-91f656a509ec.mp4"
+    }
+  },
+  "loras": {}
+}

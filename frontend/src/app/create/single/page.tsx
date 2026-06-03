@@ -372,7 +372,7 @@ export default function Home() {
                     className="bg-[#121118]/80 border border-white/10 rounded-lg px-3 py-2 text-xs text-[#f5f5f7] focus:outline-none focus:border-violet-500/50"
                   >
                     <option value="wan">Wan 2.2 (Cinematic Pro)</option>
-                    <option value="ltx">LTX-Video (Fast Draft)</option>
+                    <option value="ltx" disabled>LTX-Video (Coming Soon)</option>
                   </select>
                 </div>
               </div>

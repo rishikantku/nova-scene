@@ -88,7 +88,7 @@ export class RunPodVideoProvider implements VideoProvider {
             return data.output;
           }
           if (typeof data.output === 'object') {
-            const urlVal = data.output.image_url || data.output.video_url || data.output.audio_url || data.output.url;
+            const urlVal = data.output.image_url || data.output.video_url || data.output.audio_url || data.output.lora_url || data.output.url;
             if (urlVal) return urlVal;
           }
           return JSON.stringify(data.output);
@@ -132,57 +132,29 @@ export class RunPodVideoProvider implements VideoProvider {
       throw new Error(`Endpoint ID for video engine '${videoEngine}' is not configured.`);
     }
 
-    let payload: any = {
-      image_url: imageUrl,
-      prompt,
-      duration,
-      num_inference_steps: videoEngine === "ltx" ? 50 : 30, // LTX requires 50 steps, Wan works well at 30
-      ...options
-    };
+    let payload: any;
 
     if (videoEngine === "wan") {
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const workflowPath = path.join(__dirname, 'wan_comfy_workflow.json');
-        const workflowData = fs.readFileSync(workflowPath, 'utf-8');
-        const workflowJson = JSON.parse(workflowData);
-        
-        // Inject prompt into WanVideoWrapper node (node "4")
-        if (workflowJson["4"] && workflowJson["4"].inputs) {
-          workflowJson["4"].inputs.prompt = prompt;
-        }
-
-        // If a LoRA URL is provided in options, dynamically inject a LoraLoader node
-        if (options.lora_safetensors_url) {
-           console.log(`[RunPod] Injecting LoRA node with URL: ${options.lora_safetensors_url}`);
-           // Node 12 is the CheckpointLoaderSimple. 
-           // We insert a LoraLoader (node 13) between node 12 and node 11 (IPAdapterApply).
-           workflowJson["13"] = {
-             "inputs": {
-                "lora_name": options.lora_safetensors_url, // For RunPod, we assume our custom comfy handler can download URL-based LoRAs, or we pass the url.
-                "strength_model": 1.0,
-                "strength_clip": 1.0,
-                "model": ["12", 0]
-             },
-             "class_type": "LoraLoader",
-             "_meta": { "title": "Load Character LoRA" }
-           };
-           // Update IPAdapterApply to pull model from LoraLoader instead of CheckpointLoader
-           if (workflowJson["11"] && workflowJson["11"].inputs) {
-               workflowJson["11"].inputs.model = ["13", 0];
-           }
-        }
-        
-        payload.workflow_json = workflowJson;
-        console.log(`[RunPod] Injected ComfyUI workflow for WAN 2.2 job`);
-      } catch (err) {
-        console.warn(`[RunPod] Could not load wan_comfy_workflow.json, falling back to raw script.`, err);
-      }
+      // Our ComfyUI handler only reads image_url and prompt.
+      // The baked-in workflow (wan_comfy_workflow.json) handles everything else.
+      payload = {
+        image_url: imageUrl,
+        prompt,
+      };
+      console.log(`[RunPod] Sending simplified Wan payload: image_url + prompt`);
+    } else {
+      // LTX or other engines
+      payload = {
+        image_url: imageUrl,
+        prompt,
+        duration,
+        num_inference_steps: 50,
+        ...options
+      };
     }
 
-    // If Wan, timeout is 3600. If LTX, timeout is 600.
-    const timeout = videoEngine === "ltx" ? 600 : 3600;
+    // Wan jobs can take up to 20 minutes (cold start + inference). LTX is faster.
+    const timeout = videoEngine === "wan" ? 1800 : 600;
 
     const jobId = await this.submitJob(endpointId, payload);
     return this.pollJobStatus(endpointId, jobId, timeout);
@@ -218,11 +190,7 @@ export class RunPodVideoProvider implements VideoProvider {
 
     // Training can take 15-30 minutes, set timeout to 3600 (1 hour)
     const jobId = await this.submitJob(this.loraEndpointId, payload);
-    const result = await this.pollJobStatus(this.loraEndpointId, jobId, 3600);
-    
-    if (result && result.lora_url) {
-        return result.lora_url;
-    }
-    return "";
+    const resultUrl = await this.pollJobStatus(this.loraEndpointId, jobId, 3600);
+    return resultUrl;
   }
 }

@@ -24,6 +24,8 @@ interface Scene {
   status: 'pending' | 'generating_image' | 'generating_motion' | 'completed' | 'failed';
   imageUrl?: string | null;
   videoUrl?: string | null;
+  loraSafetensorsUrl?: string;
+  loraTriggerToken?: string;
 }
 
 interface Job {
@@ -220,6 +222,7 @@ async function simulateJobRenderPhase(jobId: string) {
       wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
       ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
       audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
+      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
     });
     console.log(`[Pipeline] Using RunPodVideoProvider (Flux: ${process.env.RUNPOD_FLUX_ENDPOINT_ID}, Wan: ${process.env.RUNPOD_WAN_ENDPOINT_ID}, LTX: ${process.env.RUNPOD_LTX_ENDPOINT_ID}, Audio: ${process.env.RUNPOD_AUDIO_ENDPOINT_ID})`);
   }
@@ -453,6 +456,7 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
       wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
       ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
       audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
+      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
     });
 
     // The core magic: We generate a highly detailed prompt specifically designed to yield a perfect character sheet
@@ -507,6 +511,7 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
       wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
       ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
       audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
+      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
     });
 
     const datasetPrompts = [
@@ -554,6 +559,26 @@ app.get('/api/v1/characters', (req: Request, res: Response) => {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   return res.json({ characters });
+});
+
+app.delete('/api/v1/characters/:character_id', (req: Request, res: Response) => {
+  const { character_id } = req.params;
+  const character = MOCK_CHARACTERS[character_id];
+  
+  if (!character) {
+    return res.status(404).json({ error: 'Character not found' });
+  }
+
+  // Clean up associated LoRA metadata
+  if (character.loraId && MOCK_LORAS[character.loraId]) {
+    delete MOCK_LORAS[character.loraId];
+    console.log(`[Characters] Deleted LoRA metadata: ${character.loraId}`);
+  }
+
+  delete MOCK_CHARACTERS[character_id];
+  console.log(`[Characters] Deleted character: ${character.name} (${character_id})`);
+  
+  return res.json({ success: true, message: `Character '${character.name}' deleted` });
 });
 
 // ---------------------------------------------------------------------------
@@ -631,8 +656,11 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
       prompt: s.prompt,
       duration: s.duration,
       status: 'pending',
-      // PRE-INJECT THE CHARACTER ASSET! THIS BYPASSES FLUX TEXT-TO-IMAGE FOR THIS SCENE
-      imageUrl: primaryCharacterUrl 
+      // Don't inject the multi-panel character sheet — it's a composite reference
+      // image (front/side/3-4 views) that would produce weird I2V results.
+      // Instead, let Flux generate a scene-specific keyframe per scene.
+      // Character consistency is maintained via the LoRA trigger token.
+      imageUrl: null 
     }));
 
     story.status = 'board_ready';
@@ -670,6 +698,7 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
       wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
       ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
       audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
+      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
     });
   }
 

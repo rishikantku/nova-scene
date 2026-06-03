@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Plus, Loader2 } from "lucide-react";
+import { Users, Plus, Loader2, Trash2 } from "lucide-react";
 
 interface Character {
   id: string;
@@ -18,6 +18,7 @@ interface Character {
 export default function CharacterLibrary() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("http://localhost:8000/api/v1/characters")
@@ -31,6 +32,24 @@ export default function CharacterLibrary() {
         setIsLoading(false);
       });
   }, []);
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This will also remove any associated LoRA data.`)) return;
+    
+    setDeletingId(id);
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/characters/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setCharacters(prev => prev.filter(c => c.id !== id));
+      } else {
+        alert('Failed to delete character');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete character');
+    }
+    setDeletingId(null);
+  };
 
   return (
     <div className="min-h-full flex flex-col p-8 lg:p-12 max-w-6xl mx-auto w-full relative z-10">
@@ -77,7 +96,7 @@ export default function CharacterLibrary() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {characters.map(char => (
-            <div key={char.id} className="bg-[#121118]/80 border border-white/10 rounded-2xl overflow-hidden group hover:border-violet-500/50 transition-all">
+            <div key={char.id} className="bg-[#121118]/80 border border-white/10 rounded-2xl overflow-hidden group hover:border-violet-500/50 transition-all relative">
               <div className="aspect-square bg-zinc-900 relative overflow-hidden">
                 {char.imageUrl ? (
                   <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -91,7 +110,21 @@ export default function CharacterLibrary() {
                 </div>
               </div>
               <div className="p-5">
-                <h3 className="text-lg font-bold text-[#f5f5f7] mb-1">{char.name}</h3>
+                <div className="flex items-start justify-between mb-1">
+                  <h3 className="text-lg font-bold text-[#f5f5f7]">{char.name}</h3>
+                  <button
+                    onClick={() => handleDelete(char.id, char.name)}
+                    disabled={deletingId === char.id}
+                    className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                    title="Delete character"
+                  >
+                    {deletingId === char.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs text-zinc-500 mb-3 line-clamp-2">{char.appearance}</p>
                 <div className="flex flex-wrap gap-2">
                   <span className="px-2 py-1 bg-white/5 border border-white/5 rounded-md text-[10px] text-zinc-400 capitalize">{char.gender}</span>
