@@ -23,6 +23,7 @@ if [ -d "$VOLUME" ]; then
     done
 else
     echo "[WARNING] No Network Volume at $VOLUME. Models will be ephemeral."
+    VOLUME_MODELS="$COMFY/models"
 fi
 
 echo ""
@@ -31,7 +32,7 @@ echo "[Startup] Checking/downloading models..."
 echo "============================================="
 
 python3 -c "
-import os, sys
+import os, sys, shutil
 
 try:
     from huggingface_hub import hf_hub_download
@@ -45,50 +46,55 @@ if not os.path.isdir('/runpod-volume'):
 
 REQUIRED_MODELS = [
     {
-        'local_dir': f'{VOLUME}/text_encoders',
-        'filename': 'umt5-xxl-enc-bf16.safetensors',
+        'target_dir': f'{VOLUME}/text_encoders',
+        'target_name': 'umt5-xxl-enc-bf16.safetensors',
         'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'subfolder': 'split_files/text_encoders',
+        'hf_path': 'split_files/text_encoders/umt5-xxl-enc-bf16.safetensors',
     },
     {
-        'local_dir': f'{VOLUME}/diffusion_models',
-        'filename': 'wan2.1_i2v_720p_14B_bf16.safetensors',
+        'target_dir': f'{VOLUME}/diffusion_models',
+        'target_name': 'wan2.1_i2v_720p_14B_bf16.safetensors',
         'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'subfolder': 'split_files/diffusion_models',
+        'hf_path': 'split_files/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors',
     },
     {
-        'local_dir': f'{VOLUME}/vae',
-        'filename': 'wan_2.1_vae.safetensors',
+        'target_dir': f'{VOLUME}/vae',
+        'target_name': 'wan_2.1_vae.safetensors',
         'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'subfolder': 'split_files/vae',
+        'hf_path': 'split_files/vae/wan_2.1_vae.safetensors',
     },
     {
-        'local_dir': f'{VOLUME}/clip_vision',
-        'filename': 'clip_vision_h.safetensors',
+        'target_dir': f'{VOLUME}/clip_vision',
+        'target_name': 'clip_vision_h.safetensors',
         'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'subfolder': 'split_files/clip_vision',
+        'hf_path': 'split_files/clip_vision/clip_vision_h.safetensors',
     },
 ]
 
 for model in REQUIRED_MODELS:
-    path = os.path.join(model['local_dir'], model['filename'])
-    if os.path.exists(path):
-        size_gb = os.path.getsize(path) / (1024**3)
-        print(f\"[OK] {model['filename']} ({size_gb:.1f} GB)\")
+    target_path = os.path.join(model['target_dir'], model['target_name'])
+    if os.path.exists(target_path):
+        size_gb = os.path.getsize(target_path) / (1024**3)
+        print(f\"[OK] {model['target_name']} ({size_gb:.1f} GB)\")
     else:
-        print(f\"[MISSING] {model['filename']} - downloading...\")
+        print(f\"[MISSING] {model['target_name']} - downloading...\")
         try:
-            os.makedirs(model['local_dir'], exist_ok=True)
-            hf_hub_download(
+            os.makedirs(model['target_dir'], exist_ok=True)
+            cached = hf_hub_download(
                 repo_id=model['repo_id'],
-                filename=model['filename'],
-                subfolder=model['subfolder'],
-                local_dir=model['local_dir'],
-                local_dir_use_symlinks=False,
+                filename=model['hf_path'],
             )
-            print(f\"[DOWNLOADED] {model['filename']}\")
+            shutil.copy2(cached, target_path)
+            size_gb = os.path.getsize(target_path) / (1024**3)
+            print(f\"[DOWNLOADED] {model['target_name']} ({size_gb:.1f} GB)\")
         except Exception as e:
-            print(f\"[ERROR] Failed to download {model['filename']}: {e}\")
+            print(f\"[ERROR] Failed to download {model['target_name']}: {e}\")
+
+# List what's actually in each directory
+for d in ['text_encoders', 'diffusion_models', 'vae', 'clip_vision']:
+    full = os.path.join(VOLUME, d)
+    files = os.listdir(full) if os.path.isdir(full) else []
+    print(f\"[DIR] {d}: {files}\")
 
 print('[Startup] Model check complete.')
 "

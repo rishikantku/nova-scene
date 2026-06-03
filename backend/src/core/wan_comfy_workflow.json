@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "model": "split_files/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors",
+      "model": "wan2.1_i2v_720p_14B_bf16.safetensors",
       "base_precision": "bf16",
       "load_device": "offload_device",
       "attention_mode": "sdpa",
@@ -12,7 +12,7 @@
   },
   "2": {
     "inputs": {
-      "model_name": "split_files/text_encoders/umt5-xxl-enc-bf16.safetensors",
+      "model_name": "umt5-xxl-enc-bf16.safetensors",
       "precision": "bf16",
       "positive_prompt": "INJECT_PROMPT",
       "negative_prompt": "worst quality, blurry, mutated, ugly, deformed",
@@ -32,7 +32,7 @@
   },
   "8": {
     "inputs": {
-      "model_name": "split_files/vae/wan_2.1_vae.safetensors",
+      "model_name": "wan_2.1_vae.safetensors",
       "precision": "bf16"
     },
     "class_type": "WanVideoVAELoader",
@@ -40,7 +40,7 @@
   },
   "4": {
     "inputs": {
-      "clip_name": "split_files/clip_vision/clip_vision_h.safetensors",
+      "clip_name": "clip_vision_h.safetensors",
       "width": 832,
       "height": 480,
       "num_frames": 81,

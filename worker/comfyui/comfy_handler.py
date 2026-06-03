@@ -193,8 +193,9 @@ if __name__ == "__main__":
                 print("[ComfyUI Worker] ComfyUI server is up and running!")
                 
                 # Dump schema for each node type used in our workflow
-                node_types = ["WanVideoModelLoader", "WanVideoTextEncode", "WanVideoImageToVideoEncode", 
-                              "WanVideoSampler", "WanVideoDecode", "VHS_VideoCombine", "LoadImage"]
+                node_types = ["WanVideoModelLoader", "WanVideoTextEncodeCached", "WanVideoVAELoader",
+                              "WanVideoImageToVideoEncode", "WanVideoSampler", "WanVideoDecode", 
+                              "VHS_VideoCombine", "LoadImage"]
                 for nt in node_types:
                     try:
                         with urllib.request.urlopen(f"{COMFYUI_SERVER}/object_info/{nt}") as r:
