@@ -12,7 +12,7 @@
   },
   "2": {
     "inputs": {
-      "model_name": "umt5-xxl-enc-bf16.safetensors",
+      "model_name": "umt5_xxl_fp16.safetensors",
       "precision": "bf16",
       "positive_prompt": "INJECT_PROMPT",
       "negative_prompt": "worst quality, blurry, mutated, ugly, deformed",

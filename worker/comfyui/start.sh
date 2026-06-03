@@ -21,9 +21,21 @@ if [ -d "$VOLUME" ]; then
         ln -sf "$VOLUME_MODELS/$dir" "$COMFY/models/$dir"
         echo "[Symlink] $COMFY/models/$dir -> $VOLUME_MODELS/$dir"
     done
+
+    # Clean up old nested directories from previous hf_hub_download attempts
+    for dir in diffusion_models text_encoders vae clip_vision; do
+        if [ -d "$VOLUME_MODELS/$dir/split_files" ]; then
+            echo "[Cleanup] Removing old nested $dir/split_files/"
+            rm -rf "$VOLUME_MODELS/$dir/split_files"
+        fi
+    done
 else
     echo "[WARNING] No Network Volume at $VOLUME. Models will be ephemeral."
     VOLUME_MODELS="$COMFY/models"
+    mkdir -p "$VOLUME_MODELS/diffusion_models"
+    mkdir -p "$VOLUME_MODELS/text_encoders"
+    mkdir -p "$VOLUME_MODELS/vae"
+    mkdir -p "$VOLUME_MODELS/clip_vision"
 fi
 
 echo ""
@@ -31,73 +43,47 @@ echo "============================================="
 echo "[Startup] Checking/downloading models..."
 echo "============================================="
 
-python3 -c "
-import os, sys, shutil
+HF_BASE="https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main"
 
-try:
-    from huggingface_hub import hf_hub_download
-except ImportError:
-    print('[WARNING] huggingface_hub not installed, skipping model download')
-    sys.exit(0)
+download_model() {
+    local target_path="$1"
+    local hf_subpath="$2"
+    local filename=$(basename "$target_path")
+    
+    if [ -f "$target_path" ]; then
+        local size=$(du -h "$target_path" | cut -f1)
+        echo "[OK] $filename ($size)"
+    else
+        echo "[MISSING] $filename - downloading with wget..."
+        wget --progress=bar:force:noscroll -O "${target_path}.tmp" "${HF_BASE}/${hf_subpath}" && \
+            mv "${target_path}.tmp" "$target_path"
+        if [ $? -eq 0 ]; then
+            local size=$(du -h "$target_path" | cut -f1)
+            echo "[DOWNLOADED] $filename ($size)"
+        else
+            echo "[ERROR] Failed to download $filename"
+            rm -f "${target_path}.tmp"
+        fi
+    fi
+}
 
-VOLUME = '/runpod-volume/comfyui-models'
-if not os.path.isdir('/runpod-volume'):
-    VOLUME = '/workspace/ComfyUI/models'
+download_model "$VOLUME_MODELS/text_encoders/umt5_xxl_fp16.safetensors" \
+    "split_files/text_encoders/umt5_xxl_fp16.safetensors"
 
-REQUIRED_MODELS = [
-    {
-        'target_dir': f'{VOLUME}/text_encoders',
-        'target_name': 'umt5-xxl-enc-bf16.safetensors',
-        'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'hf_path': 'split_files/text_encoders/umt5-xxl-enc-bf16.safetensors',
-    },
-    {
-        'target_dir': f'{VOLUME}/diffusion_models',
-        'target_name': 'wan2.1_i2v_720p_14B_bf16.safetensors',
-        'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'hf_path': 'split_files/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors',
-    },
-    {
-        'target_dir': f'{VOLUME}/vae',
-        'target_name': 'wan_2.1_vae.safetensors',
-        'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'hf_path': 'split_files/vae/wan_2.1_vae.safetensors',
-    },
-    {
-        'target_dir': f'{VOLUME}/clip_vision',
-        'target_name': 'clip_vision_h.safetensors',
-        'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
-        'hf_path': 'split_files/clip_vision/clip_vision_h.safetensors',
-    },
-]
+download_model "$VOLUME_MODELS/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors" \
+    "split_files/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors"
 
-for model in REQUIRED_MODELS:
-    target_path = os.path.join(model['target_dir'], model['target_name'])
-    if os.path.exists(target_path):
-        size_gb = os.path.getsize(target_path) / (1024**3)
-        print(f\"[OK] {model['target_name']} ({size_gb:.1f} GB)\")
-    else:
-        print(f\"[MISSING] {model['target_name']} - downloading...\")
-        try:
-            os.makedirs(model['target_dir'], exist_ok=True)
-            cached = hf_hub_download(
-                repo_id=model['repo_id'],
-                filename=model['hf_path'],
-            )
-            shutil.copy2(cached, target_path)
-            size_gb = os.path.getsize(target_path) / (1024**3)
-            print(f\"[DOWNLOADED] {model['target_name']} ({size_gb:.1f} GB)\")
-        except Exception as e:
-            print(f\"[ERROR] Failed to download {model['target_name']}: {e}\")
+download_model "$VOLUME_MODELS/vae/wan_2.1_vae.safetensors" \
+    "split_files/vae/wan_2.1_vae.safetensors"
 
-# List what's actually in each directory
-for d in ['text_encoders', 'diffusion_models', 'vae', 'clip_vision']:
-    full = os.path.join(VOLUME, d)
-    files = os.listdir(full) if os.path.isdir(full) else []
-    print(f\"[DIR] {d}: {files}\")
+download_model "$VOLUME_MODELS/clip_vision/clip_vision_h.safetensors" \
+    "split_files/clip_vision/clip_vision_h.safetensors"
 
-print('[Startup] Model check complete.')
-"
+echo ""
+echo "--- Model directories ---"
+for dir in text_encoders diffusion_models vae clip_vision; do
+    echo "$dir: $(ls "$VOLUME_MODELS/$dir/" 2>/dev/null || echo '(empty)')"
+done
 
 echo ""
 echo "============================================="
