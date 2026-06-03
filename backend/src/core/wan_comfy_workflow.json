@@ -77,7 +77,7 @@
       "tile_overlap_factor_width": 0.2,
       "auto_tile_size": true,
       "samples": ["5", 0],
-      "vae": ["4", 1]
+      "vae": ["4", 2]
     },
     "class_type": "WanVideoDecode",
     "_meta": {
@@ -86,9 +86,12 @@
   },
   "7": {
     "inputs": {
+      "frame_rate": 16,
+      "loop_count": 0,
       "filename_prefix": "wan_scene",
-      "fps": 16,
       "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true,
       "images": ["6", 0]
     },
     "class_type": "VHS_VideoCombine",
