@@ -70,27 +70,36 @@ def download_image_for_comfy(image_url: str) -> str:
             
     return filename # ComfyUI LoadImage node expects just the filename if it's in /input
 
+WORKFLOW_PATH = "/workspace/wan_comfy_workflow.json"
+
 def handler(job):
     job_input = job.get("input", {})
-    workflow_json = job_input.get("workflow_json")
     image_url = job_input.get("image_url")
+    prompt = job_input.get("prompt", "cinematic motion, smooth animation, high quality video")
     
-    if not workflow_json:
-        return {"error": "Missing 'workflow_json' in input"}
+    if not image_url:
+        return {"error": "Missing 'image_url' in input"}
         
     try:
-        # If there's an image, we download it and inject the filename into the workflow
-        # The backend should include a marker like "INJECT_IMAGE_FILENAME" in the workflow JSON
-        if image_url:
-            print(f"[ComfyUI Worker] Downloading input image: {image_url}")
-            filename = download_image_for_comfy(image_url)
+        # Load the baked-in workflow template
+        with open(WORKFLOW_PATH, "r") as f:
+            workflow_json = json.load(f)
+        
+        # Download the reference image to ComfyUI's input directory
+        print(f"[ComfyUI Worker] Downloading input image: {image_url}")
+        filename = download_image_for_comfy(image_url)
+        
+        # Inject prompt and image filename into the correct nodes
+        for node_id, node in workflow_json.items():
+            class_type = node.get("class_type", "")
             
-            # Find the LoadImage node and replace its image field
-            for node_id, node in workflow_json.items():
-                if node.get("class_type") == "LoadImage":
-                    # Assume we inject into the first LoadImage node found
-                    node["inputs"]["image"] = filename
-                    break
+            if class_type == "LoadImage":
+                node["inputs"]["image"] = filename
+                print(f"[ComfyUI Worker] Injected image '{filename}' into LoadImage node {node_id}")
+                
+            elif class_type == "WanVideoTextEncode":
+                node["inputs"]["positive"] = prompt
+                print(f"[ComfyUI Worker] Injected prompt into WanVideoTextEncode node {node_id}")
 
         print("[ComfyUI Worker] Queuing workflow to ComfyUI...")
         queue_response = queue_prompt(workflow_json)
@@ -108,23 +117,23 @@ def handler(job):
                 break
             time.sleep(2)
             
-        # Parse outputs (assuming the workflow ends with a SaveVideo or SaveAnimatedWEBP node)
+        # Parse outputs
         outputs = history[prompt_id].get("outputs", {})
         
-        # Find the saved file
+        # Find the saved file - VHS_VideoCombine outputs under 'gifs' key
         saved_files = []
         output_dir = "/workspace/ComfyUI/output"
         
         for node_id, node_output in outputs.items():
-            if "gifs" in node_output: # typical for AnimateDiff/Video nodes
+            if "gifs" in node_output:
                 for file_info in node_output["gifs"]:
                     saved_files.append(file_info["filename"])
-            elif "images" in node_output: # Sometimes videos are saved under 'images' array depending on custom node
+            elif "images" in node_output:
                 for file_info in node_output["images"]:
                     saved_files.append(file_info["filename"])
                     
         if not saved_files:
-            return {"error": "Workflow completed but no output files were detected."}
+            return {"error": "Workflow completed but no output files were detected.", "outputs": outputs}
             
         # Upload the first output file to R2
         output_filename = saved_files[0]

@@ -1,89 +1,115 @@
 {
+  "1": {
+    "inputs": {
+      "model": "wan2.1-i2v-14B-480p.safetensors",
+      "base_precision": "bf16",
+      "load_device": "offload_device",
+      "attention_mode": "sdpa",
+      "quantization": "disabled"
+    },
+    "class_type": "WanVideoModelLoader",
+    "_meta": {
+      "title": "WanVideo Model Loader"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "open-clip-xlm-roberta-large-vit-huge-14.safetensors",
+      "type": "open_clip",
+      "device": "auto"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
   "3": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "WanVideoVAELoader",
+    "_meta": {
+      "title": "WanVideo VAE Loader"
+    }
+  },
+  "4": {
     "inputs": {
       "image": "INJECT_IMAGE_FILENAME"
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Load Image (Character Sheet)"
-    }
-  },
-  "10": {
-    "inputs": {
-      "ipadapter_file": "ip-adapter-wan-2.2.safetensors"
-    },
-    "class_type": "IPAdapterModelLoader",
-    "_meta": {
-      "title": "Load IPAdapter Model"
-    }
-  },
-  "11": {
-    "inputs": {
-      "weight": 0.8,
-      "noise": 0.1,
-      "weight_type": "standard",
-      "start_at": 0.0,
-      "end_at": 1.0,
-      "ipadapter": [
-        "10",
-        0
-      ],
-      "image": [
-        "3",
-        0
-      ],
-      "model": [
-        "12",
-        0
-      ]
-    },
-    "class_type": "IPAdapterAdvanced",
-    "_meta": {
-      "title": "IPAdapter Apply"
-    }
-  },
-  "12": {
-    "inputs": {
-      "model_name": "wan2.1-i2v-14b.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Wan 2.2 Checkpoint"
-    }
-  },
-  "4": {
-    "inputs": {
-      "prompt": "INJECT_PROMPT",
-      "negative_prompt": "worst quality, blurry, mutated, ugly",
-      "num_frames": 81,
-      "width": 832,
-      "height": 480,
-      "num_inference_steps": 40,
-      "fps": 16,
-      "seed": 42,
-      "model": [
-        "11",
-        0
-      ],
-      "image": [
-        "3",
-        0
-      ]
-    },
-    "class_type": "WanVideoWrapper",
-    "_meta": {
-      "title": "Wan 2.2 Video Generator"
+      "title": "Load Input Image"
     }
   },
   "5": {
     "inputs": {
+      "positive": "INJECT_PROMPT",
+      "negative": "worst quality, blurry, mutated, ugly, deformed",
+      "force_offload": true,
+      "clip": ["2", 0]
+    },
+    "class_type": "WanVideoTextEncode",
+    "_meta": {
+      "title": "WanVideo Text Encode"
+    }
+  },
+  "6": {
+    "inputs": {
+      "num_frames": 81,
+      "width": 832,
+      "height": 480,
+      "strength": 1.0,
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "image": ["4", 0],
+      "vae": ["3", 0],
+      "clip_vision": ["2", 0]
+    },
+    "class_type": "WanVideoImageToVideoEncode",
+    "_meta": {
+      "title": "WanVideo Image To Video Encode"
+    }
+  },
+  "7": {
+    "inputs": {
+      "steps": 30,
+      "cfg": 5.0,
+      "shift": 5.0,
+      "seed": 42,
+      "scheduler": "unipc",
+      "riflex_freq_index": 0,
+      "force_offload": true,
+      "model": ["1", 0],
+      "text_embeds": ["5", 0],
+      "image_embeds": ["6", 0]
+    },
+    "class_type": "WanVideoSampler",
+    "_meta": {
+      "title": "WanVideo Sampler"
+    }
+  },
+  "8": {
+    "inputs": {
+      "enable_vae_tiling": true,
+      "tile_sample_min_height": 240,
+      "tile_sample_min_width": 384,
+      "tile_overlap_factor_height": 0.2,
+      "tile_overlap_factor_width": 0.2,
+      "auto_tile_size": true,
+      "samples": ["7", 0],
+      "vae": ["3", 0]
+    },
+    "class_type": "WanVideoDecode",
+    "_meta": {
+      "title": "WanVideo Decode"
+    }
+  },
+  "9": {
+    "inputs": {
       "filename_prefix": "wan_scene",
       "fps": 16,
       "format": "video/h264-mp4",
-      "images": [
-        "4",
-        0
-      ]
+      "images": ["8", 0]
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {

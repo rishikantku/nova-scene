@@ -30,8 +30,9 @@ RUN pip install runpod boto3 certifi requests
 # This causes the "torchvision::nms does not exist" C++ crash. We MUST synchronize them at the end!
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --upgrade
 
-# Copy our serverless handler
+# Copy our serverless handler and baked-in workflow
 COPY worker/comfyui/comfy_handler.py /workspace/comfy_handler.py
+COPY backend/src/core/wan_comfy_workflow.json /workspace/wan_comfy_workflow.json
 
 # A shell script to start ComfyUI in the background and then run the handler
 RUN printf "#!/bin/bash\ncd /workspace/ComfyUI\npython main.py --listen 127.0.0.1 --port 8188 > /workspace/comfy.log 2>&1 &\nsleep 10\ncd /workspace\npython comfy_handler.py\n" > /workspace/start.sh && chmod +x /workspace/start.sh
