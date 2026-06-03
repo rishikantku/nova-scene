@@ -2,19 +2,38 @@ FROM runpod/pytorch:2.2.1-py3.10-cuda12.1.1-devel-ubuntu22.04
 
 WORKDIR /workspace
 
-# Install system dependencies
+# Install system dependencies (including git for kohya)
 RUN apt-get update && apt-get install -y git ffmpeg libgl1-mesa-glx && rm -rf /var/lib/apt/lists/*
 
-# Clone kohya_ss for SDXL/Flux LoRA training
+# Clone kohya_ss for SDXL LoRA training
 RUN git clone --depth 1 https://github.com/bmaltais/kohya_ss.git
 
-WORKDIR /workspace/kohya_ss
-
-# Install kohya dependencies
+# Install PyTorch (matching base image CUDA version)
 RUN pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu121
-RUN pip install -r requirements.txt
+
+# Install only the core kohya training dependencies (skip full requirements.txt which includes UI deps)
+RUN pip install \
+    accelerate>=0.25.0 \
+    transformers>=4.36.0 \
+    diffusers>=0.25.0 \
+    safetensors>=0.4.0 \
+    huggingface_hub>=0.20.0 \
+    opencv-python-headless \
+    einops \
+    ftfy \
+    albumentations \
+    toml \
+    voluptuous \
+    lion-pytorch \
+    lycoris-lora \
+    prodigyopt \
+    wandb \
+    bitsandbytes \
+    scipy \
+    tensorboard
+
+# Install xformers for memory-efficient attention
 RUN pip install xformers==0.0.25 --index-url https://download.pytorch.org/whl/cu121
-RUN pip install accelerate bitsandbytes
 
 # Install runpod SDK and upload deps
 RUN pip install runpod boto3 certifi requests
