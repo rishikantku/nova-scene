@@ -8,9 +8,7 @@
       "quantization": "disabled"
     },
     "class_type": "WanVideoModelLoader",
-    "_meta": {
-      "title": "WanVideo Model Loader"
-    }
+    "_meta": { "title": "Load WAN Model" }
   },
   "2": {
     "inputs": {
@@ -20,35 +18,52 @@
       "clip_name": "umt5-xxl-enc-bf16.safetensors"
     },
     "class_type": "WanVideoTextEncode",
-    "_meta": {
-      "title": "WanVideo Text Encode"
-    }
+    "_meta": { "title": "Text Encode" }
   },
   "3": {
     "inputs": {
       "image": "INJECT_IMAGE_FILENAME"
     },
     "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Input Image"
-    }
+    "_meta": { "title": "Load Image" }
+  },
+  "8": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": { "title": "Load VAE" }
+  },
+  "9": {
+    "inputs": {
+      "clip_name": "clip_vision_h.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": { "title": "Load CLIP Vision" }
+  },
+  "10": {
+    "inputs": {
+      "image": ["3", 0],
+      "clip_vision": ["9", 0]
+    },
+    "class_type": "CLIPVisionEncode",
+    "_meta": { "title": "CLIP Vision Encode" }
   },
   "4": {
     "inputs": {
-      "clip_name": "clip_vision_h.safetensors",
-      "vae_name": "wan_2.1_vae.safetensors",
       "width": 832,
       "height": 480,
       "num_frames": 81,
-      "strength": 1.0,
-      "start_percent": 0.0,
-      "end_percent": 1.0,
-      "image": ["3", 0]
+      "noise_aug_strength": 0.0,
+      "start_latent_strength": 1.0,
+      "end_latent_strength": 1.0,
+      "force_offload": true,
+      "vae": ["8", 0],
+      "start_image": ["3", 0],
+      "clip_embeds": ["10", 0]
     },
     "class_type": "WanVideoImageToVideoEncode",
-    "_meta": {
-      "title": "WanVideo Image To Video Encode"
-    }
+    "_meta": { "title": "I2V Encode" }
   },
   "5": {
     "inputs": {
@@ -64,25 +79,20 @@
       "image_embeds": ["4", 0]
     },
     "class_type": "WanVideoSampler",
-    "_meta": {
-      "title": "WanVideo Sampler"
-    }
+    "_meta": { "title": "Sampler" }
   },
   "6": {
     "inputs": {
       "enable_vae_tiling": true,
-      "tile_sample_min_height": 240,
-      "tile_sample_min_width": 384,
-      "tile_overlap_factor_height": 0.2,
-      "tile_overlap_factor_width": 0.2,
-      "auto_tile_size": true,
-      "samples": ["5", 0],
-      "vae": ["4", 2]
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128,
+      "vae": ["8", 0],
+      "samples": ["5", 0]
     },
     "class_type": "WanVideoDecode",
-    "_meta": {
-      "title": "WanVideo Decode"
-    }
+    "_meta": { "title": "Decode" }
   },
   "7": {
     "inputs": {
@@ -95,8 +105,6 @@
       "images": ["6", 0]
     },
     "class_type": "VHS_VideoCombine",
-    "_meta": {
-      "title": "Save Video"
-    }
+    "_meta": { "title": "Save Video" }
   }
 }
