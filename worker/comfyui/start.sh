@@ -12,11 +12,11 @@ if [ -d "$VOLUME" ]; then
     echo "[OK] Network Volume mounted at $VOLUME"
     
     mkdir -p "$VOLUME_MODELS/diffusion_models"
-    mkdir -p "$VOLUME_MODELS/clip"
+    mkdir -p "$VOLUME_MODELS/text_encoders"
     mkdir -p "$VOLUME_MODELS/vae"
     mkdir -p "$VOLUME_MODELS/clip_vision"
     
-    for dir in diffusion_models clip vae clip_vision; do
+    for dir in diffusion_models text_encoders vae clip_vision; do
         rm -rf "$COMFY/models/$dir"
         ln -sf "$VOLUME_MODELS/$dir" "$COMFY/models/$dir"
         echo "[Symlink] $COMFY/models/$dir -> $VOLUME_MODELS/$dir"
@@ -45,7 +45,7 @@ if not os.path.isdir('/runpod-volume'):
 
 REQUIRED_MODELS = [
     {
-        'local_dir': f'{VOLUME}/clip',
+        'local_dir': f'{VOLUME}/text_encoders',
         'filename': 'umt5-xxl-enc-bf16.safetensors',
         'repo_id': 'Comfy-Org/Wan_2.1_ComfyUI_repackaged',
         'subfolder': 'split_files/text_encoders',
