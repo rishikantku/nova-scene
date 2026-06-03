@@ -3,6 +3,8 @@ import cors from 'cors';
 import crypto from 'crypto';
 import path from 'path';
 import dotenv from 'dotenv';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { MockVideoProvider } from './core/provider';
 import { RunPodVideoProvider } from './core/runpod_provider';
 import { NovaSceneOrchestrator } from './core/orchestrator';
@@ -95,6 +97,8 @@ interface Story {
   status: 'draft' | 'generating_board' | 'board_ready' | 'generating_video' | 'completed' | 'failed';
   scenes: Scene[];
   finalVideoUrl?: string;
+  includeAudio?: boolean;
+  audioPrompt?: string;
   createdAt: string;
 }
 
@@ -175,9 +179,9 @@ async function simulateJobPlanningPhase(jobId: string, prompt: string, duration:
   const orchestrator = new NovaSceneOrchestrator(provider);
 
   try {
-    const scenes = await orchestrator.splitPromptIntoScenes(prompt, duration, visualStyle);
+    const result = await orchestrator.splitPromptIntoScenes(prompt, duration, visualStyle);
     
-    job.scenes = scenes.map((s) => ({
+    job.scenes = result.scenes.map((s: any) => ({
       id: `scene-${s.sceneIndex}-${crypto.randomUUID()}`,
       index: s.sceneIndex,
       prompt: s.prompt,
@@ -424,8 +428,47 @@ app.get('/api/v1/jobs/:job_id/stream', (req: Request, res: Response) => {
 // Character Persistence Endpoints
 // ---------------------------------------------------------------------------
 
+app.get('/api/v1/upload-url', async (req: Request, res: Response) => {
+  const fileName = req.query.fileName as string;
+  const fileType = req.query.fileType as string;
+
+  if (!fileName || !fileType) {
+    return res.status(400).json({ error: 'fileName and fileType query params required' });
+  }
+
+  const s3Client = new S3Client({
+    region: 'auto',
+    endpoint: process.env.R2_ENDPOINT_URL,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+    },
+  });
+
+  const bucketName = process.env.R2_BUCKET_NAME || 'novascene-assets';
+  const cdnUrl = process.env.R2_CDN_URL || 'https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev';
+  
+  const key = `uploads/${crypto.randomUUID()}_${fileName}`;
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const publicUrl = `${cdnUrl}/${key}`;
+
+    res.json({ uploadUrl, publicUrl });
+  } catch (error: any) {
+    console.error('Failed to generate presigned URL', error);
+    res.status(500).json({ error: 'Failed to generate upload URL' });
+  }
+});
+
 app.post('/api/v1/characters', async (req: Request, res: Response) => {
-  const { name, gender, appearance, outfit, visualStyle, enableLora } = req.body;
+  const { name, gender, appearance, outfit, visualStyle, enableLora, referenceImageUrl } = req.body;
   if (!name || !appearance) {
     return res.status(400).json({ error: 'Name and appearance are required' });
   }
@@ -477,7 +520,12 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
       console.log(`[Characters] Generating single portrait for ${name} (Standard mode)...`);
     }
 
-    const imageUrl = await provider.generateImage(prompt, aspectRatio);
+    const options: any = {};
+    if (referenceImageUrl) {
+      options.referenceImageUrl = referenceImageUrl;
+    }
+
+    const imageUrl = await provider.generateImage(prompt, aspectRatio, options);
     
     newCharacter.imageUrl = imageUrl;
     MOCK_CHARACTERS[characterId] = newCharacter;
@@ -834,7 +882,7 @@ app.get('/api/v1/activity', (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 
 app.post('/api/v1/stories', (req: Request, res: Response) => {
-  const { title, genre, visualStyle, targetDuration, castIds, videoEngine } = req.body;
+  const { title, genre, visualStyle, targetDuration, castIds, videoEngine, includeAudio, audioPrompt } = req.body;
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
   }
@@ -847,6 +895,8 @@ app.post('/api/v1/stories', (req: Request, res: Response) => {
     visualStyle: visualStyle || 'Cinematic',
     targetDuration: targetDuration || 15,
     videoEngine: videoEngine || 'wan',
+    includeAudio: includeAudio || false,
+    audioPrompt: audioPrompt || '',
     castIds: castIds || [],
     status: 'draft',
     scenes: [],
@@ -921,9 +971,14 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
 
   try {
     console.log(`[Stories] Generating board for ${story.id}...`);
-    const scenes = await orchestrator.splitPromptIntoScenes(prompt, story.targetDuration, story.visualStyle);
+    const orchestratorResult = await orchestrator.splitPromptIntoScenes(prompt, story.targetDuration, story.visualStyle);
     
-    story.scenes = scenes.map((s) => {
+    // Auto-fill the audio prompt if requested
+    if (story.includeAudio && orchestratorResult.audioPrompt) {
+      story.audioPrompt = orchestratorResult.audioPrompt;
+    }
+    
+    story.scenes = orchestratorResult.scenes.map((s: any) => {
       // Programmatically enforce the exact character description on every single prompt
       // Put the action FIRST so that the 77-token CLIP limit doesn't truncate the core action!
       const finalPrompt = characterContext ? `Action: ${s.prompt} | Character details: ${characterContext}` : s.prompt;
@@ -950,6 +1005,60 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
   }
 });
 
+// Delete a story
+app.delete('/api/v1/stories/:story_id', async (req: Request, res: Response) => {
+  const { story_id } = req.params;
+  
+  if (!MOCK_STORIES[story_id]) {
+    return res.status(404).json({ error: 'Story not found' });
+  }
+  
+  delete MOCK_STORIES[story_id];
+  
+  // Persist to DB
+  try {
+    const data = JSON.parse(await fs.promises.readFile(DB_PATH, 'utf-8'));
+    delete data.stories[story_id];
+    await fs.promises.writeFile(DB_PATH, JSON.stringify(data, null, 2));
+    console.log(`[Stories] Deleted story ${story_id}`);
+  } catch (err) {
+    console.error('[Stories] Failed to persist story deletion:', err);
+  }
+  
+  res.status(200).json({ success: true });
+});
+
+// Delete a scene from a story
+app.delete('/api/v1/stories/:story_id/scenes/:scene_id', async (req: Request, res: Response) => {
+  const { story_id, scene_id } = req.params;
+  
+  const story = MOCK_STORIES[story_id];
+  if (!story) {
+    return res.status(404).json({ error: 'Story not found' });
+  }
+  
+  const initialLength = story.scenes.length;
+  story.scenes = story.scenes.filter(s => s.id !== scene_id);
+  
+  if (story.scenes.length === initialLength) {
+    return res.status(404).json({ error: 'Scene not found in story' });
+  }
+  
+  // Persist to DB
+  try {
+    const data = JSON.parse(await fs.promises.readFile(DB_PATH, 'utf-8'));
+    if (data.stories[story_id]) {
+        data.stories[story_id].scenes = story.scenes;
+        await fs.promises.writeFile(DB_PATH, JSON.stringify(data, null, 2));
+    }
+    console.log(`[Stories] Deleted scene ${scene_id} from story ${story_id}`);
+  } catch (err) {
+    console.error('[Stories] Failed to persist scene deletion:', err);
+  }
+  
+  res.status(200).json({ success: true, scenes: story.scenes });
+});
+
 // We can just reuse simulateJobRenderPhase logic or create a similar one for Stories
 app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response) => {
   const { story_id } = req.params;
@@ -960,6 +1069,14 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
     return res.status(400).json({ error: 'Storyboard is not ready' });
   }
 
+  // Allow the UI to override scenes (for edited prompts) and audio prompt before rendering
+  if (req.body.scenes && Array.isArray(req.body.scenes)) {
+    story.scenes = req.body.scenes;
+  }
+  if (req.body.audioPrompt !== undefined) {
+    story.audioPrompt = req.body.audioPrompt;
+  }
+
   story.status = 'generating_video';
   res.status(202).json({ success: true, message: 'Rendering story video...' });
 
@@ -967,7 +1084,7 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
   const apiKey = process.env.RUNPOD_API_KEY;
   const isMock = !apiKey || apiKey === 'mock-runpod-key';
   
-  let provider;
+  let provider: any;
   if (isMock) {
     provider = new MockVideoProvider();
   } else {
@@ -1004,8 +1121,8 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
     const finalVideoUrl = await orchestrator.executeJobRenderPhase(
       story.id,
       story.scenes,
-      true, // Include audio by default for stories
-      `Epic cinematic soundtrack for ${story.genre}`,
+      !!story.includeAudio,
+      story.audioPrompt || "",
       story.videoEngine || 'wan',
       (update) => {
          // Could emit SSE for stories here, skipping for brevity
@@ -1021,9 +1138,18 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
       }
     );
 
-    story.finalVideoUrl = finalVideoUrl;
+    const validVideoUrls = story.scenes.map(s => s.videoUrl).filter((url): url is string => !!url);
+    if (validVideoUrls.length > 0) {
+      console.log(`[Stories] Stitching ${validVideoUrls.length} videos together for story ${story.id}...`);
+      const finalStitchedUrl = await provider.stitchVideos(validVideoUrls, story.includeAudio, story.audioPrompt);
+      story.finalVideoUrl = finalStitchedUrl;
+      console.log(`[Stories] ✅ Stitching complete! Final video: ${finalStitchedUrl}`);
+    } else {
+      story.finalVideoUrl = finalVideoUrl;
+    }
+
     story.status = 'completed';
-    console.log(`[Stories] Story ${story.id} render completed! URL: ${finalVideoUrl}`);
+    console.log(`[Stories] Story ${story.id} render completed! URL: ${story.finalVideoUrl}`);
   } catch (err) {
     console.error(`[Stories] Story render failed:`, err);
     story.status = 'failed';

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowLeft, Loader2, UserPlus, Crown } from "lucide-react";
+import { Sparkles, ArrowLeft, Loader2, UserPlus, Crown, UploadCloud, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function NewCharacter() {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -15,8 +17,39 @@ export default function NewCharacter() {
     appearance: "",
     outfit: "",
     visualStyle: "Cinematic",
-    enableLora: false
+    enableLora: false,
+    referenceImageUrl: ""
   });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // 1. Get presigned URL
+      const urlRes = await fetch(`http://localhost:8000/api/v1/upload-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`);
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, publicUrl } = await urlRes.json();
+
+      // 2. Upload file directly to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!uploadRes.ok) throw new Error("Failed to upload file to R2");
+
+      // 3. Set the public URL in form data
+      setFormData(prev => ({ ...prev, referenceImageUrl: publicUrl }));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload image. Check console for details.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +159,48 @@ export default function NewCharacter() {
                 <option value="Photorealistic">Photorealistic</option>
                 <option value="Watercolor">Watercolor</option>
               </select>
+            </div>
+          </div>
+
+          {/* Reference Image Upload */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-zinc-400 font-medium">Reference Image (Optional: AI Character Extraction)</label>
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                formData.referenceImageUrl 
+                  ? 'border-violet-500/50 bg-violet-500/5' 
+                  : 'border-white/10 hover:border-violet-500/30 bg-[#121118]/50'
+              }`}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload}
+                accept="image/*" 
+                className="hidden" 
+              />
+              
+              {isUploading ? (
+                <div className="flex flex-col items-center gap-2 text-zinc-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+                  <span className="text-sm">Uploading to Cloudflare R2...</span>
+                </div>
+              ) : formData.referenceImageUrl ? (
+                <div className="flex flex-col items-center gap-3">
+                  <img src={formData.referenceImageUrl} alt="Reference" className="w-24 h-24 object-cover rounded-lg shadow-md" />
+                  <span className="text-sm text-violet-300 font-medium">Image uploaded and ready!</span>
+                  <span className="text-xs text-zinc-500">Click to replace</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-zinc-500">
+                  <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-2">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium text-zinc-300">Upload a face or character reference</span>
+                  <span className="text-xs">Supports JPG, PNG (Max 5MB)</span>
+                </div>
+              )}
             </div>
           </div>
 

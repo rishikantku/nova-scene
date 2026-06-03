@@ -1,5 +1,5 @@
 # docker/Dockerfile.gpu-worker
-FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel
+FROM runpod/pytorch:2.6.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 WORKDIR /app
 
@@ -16,11 +16,14 @@ RUN pip install --no-cache-dir \
     diffusers==0.32.1 \
     transformers==4.45.0 \
     accelerate==0.34.0 \
+    peft==0.12.0 \
+    einops \
     boto3==1.34.50 \
     requests==2.31.0 \
     pillow==10.2.0 \
     protobuf==4.25.3 \
     sentencepiece==0.2.0 \
+    opencv-python-headless==4.9.0.80 \
     certifi
 
 # Copy worker script handlers

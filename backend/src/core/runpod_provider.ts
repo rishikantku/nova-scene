@@ -111,7 +111,7 @@ export class RunPodVideoProvider implements VideoProvider {
       throw new Error('RUNPOD_FLUX_ENDPOINT_ID must be configured for image generation.');
     }
 
-    const payload = {
+    const payload: any = {
       prompt,
       aspect_ratio: aspectRatio,
       width: aspectRatio === '16:9' ? 1024 : 576,
@@ -119,6 +119,10 @@ export class RunPodVideoProvider implements VideoProvider {
       num_inference_steps: 28,
       ...options
     };
+
+    if (options?.referenceImageUrl) {
+      payload.image_prompt_url = options.referenceImageUrl;
+    }
 
     const jobId = await this.submitJob(this.fluxEndpointId, payload);
     return this.pollJobStatus(this.fluxEndpointId, jobId, 600);

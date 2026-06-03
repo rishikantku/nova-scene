@@ -25,6 +25,8 @@ export default function StoryWizard() {
   const [visualStyle, setVisualStyle] = useState("Cinematic");
   const [duration, setDuration] = useState(15);
   const [videoEngine, setVideoEngine] = useState("wan");
+  const [includeAudio, setIncludeAudio] = useState(false);
+  const [audioPrompt, setAudioPrompt] = useState("");
   const [storyId, setStoryId] = useState<string | null>(null);
 
   // Cast Selection State
@@ -63,6 +65,8 @@ export default function StoryWizard() {
           visualStyle,
           targetDuration: duration,
           videoEngine,
+          includeAudio,
+          audioPrompt: includeAudio ? audioPrompt : undefined,
           castIds: selectedCastIds
         })
       });
@@ -189,6 +193,31 @@ export default function StoryWizard() {
                   <option value={30}>30 Seconds (6-8 Scenes)</option>
                 </select>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-4 bg-[#121118]/80 border border-white/10 rounded-2xl p-5 shadow-inner">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={includeAudio} 
+                  onChange={(e) => setIncludeAudio(e.target.checked)}
+                  className="w-5 h-5 rounded border-white/20 bg-black/50 text-fuchsia-500 focus:ring-fuchsia-500/50"
+                />
+                <span className="text-sm font-semibold text-white">Generate Background Audio (SFX & Music)</span>
+              </label>
+
+              {includeAudio && (
+                <div className="flex flex-col gap-2 mt-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="text-xs text-fuchsia-100/70 font-semibold uppercase tracking-wider">Audio Prompt (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={audioPrompt}
+                    onChange={(e) => setAudioPrompt(e.target.value)}
+                    placeholder="e.g. Tense synth music with distant cyberpunk sirens and futuristic hums..."
+                    className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-fuchsia-500/50 text-white placeholder-zinc-600 resize-none"
+                  />
+                </div>
+              )}
             </div>
 
             <button

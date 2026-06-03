@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { Film, Play, Loader2, Sparkles, CheckCircle2, Clock } from "lucide-react";
+import { Film, Play, Loader2, Sparkles, CheckCircle2, Clock, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 interface Scene {
@@ -21,6 +21,8 @@ interface Story {
   status: string;
   scenes: Scene[];
   finalVideoUrl?: string;
+  includeAudio?: boolean;
+  audioPrompt?: string;
 }
 
 export default function StoryBoard({ params }: { params: Promise<{ id: string }> }) {
@@ -59,7 +61,12 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
   const handleRender = async () => {
     setIsRendering(true);
     try {
-      await fetch(`http://localhost:8000/api/v1/stories/${id}/render`, { method: "POST" });
+      if (!story) return;
+      await fetch(`http://localhost:8000/api/v1/stories/${id}/render`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenes: story.scenes, audioPrompt: story.audioPrompt })
+      });
       
       // The initial polling interval was cleared because the status was 'board_ready'.
       // We must manually poll here until it completes.
@@ -78,6 +85,25 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     } catch (err) {
       console.error("Failed to start render", err);
       setIsRendering(false);
+    }
+  };
+
+  const handleDeleteScene = async (sceneId: string) => {
+    if (!confirm("Are you sure you want to delete this scene?")) return;
+    
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/stories/${id}/scenes/${sceneId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStory({ ...story!, scenes: data.scenes });
+      } else {
+        alert("Failed to delete scene.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting scene.");
     }
   };
 
@@ -123,7 +149,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
          
          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-3xl">
            {story.scenes.map(s => (
-              <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-2">
+              <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-2 group relative">
                  <div className="text-xs font-bold text-zinc-500">Scene {s.index + 1}</div>
                  {s.status === 'completed' ? (
                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -132,6 +158,13 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
                  ) : (
                    <Clock className="w-5 h-5 text-zinc-600" />
                  )}
+                 <button
+                    onClick={() => handleDeleteScene(s.id)}
+                    className="absolute top-2 right-2 p-1 rounded-md text-zinc-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Delete Scene"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
               </div>
            ))}
          </div>
@@ -230,6 +263,24 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
         </button>
       </header>
 
+      {story.includeAudio && (
+        <div className="mb-8 p-6 bg-[#121118]/80 border border-fuchsia-500/20 rounded-2xl shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-bold text-fuchsia-400 flex items-center gap-2">
+              Background Audio Generation
+            </label>
+            <span className="text-xs text-zinc-500">Will be stitched to the final video</span>
+          </div>
+          <textarea
+            value={story.audioPrompt || ''}
+            onChange={(e) => setStory({ ...story, audioPrompt: e.target.value })}
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-fuchsia-500/50 resize-none"
+            rows={2}
+            placeholder="Describe the audio, sound effects, and background music..."
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {story.scenes.map((scene, i) => (
           <div key={scene.id} className="bg-[#121118]/80 border border-white/10 rounded-3xl overflow-hidden hover:border-violet-500/30 transition-all shadow-xl group">
@@ -257,9 +308,13 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
                 <span className="text-sm font-bold text-violet-400">Scene {i + 1}</span>
               </div>
               <textarea 
-                readOnly
                 value={scene.prompt}
-                className="w-full bg-black/30 border border-white/5 rounded-xl px-4 py-3 text-xs text-zinc-300 leading-relaxed resize-none focus:outline-none focus:border-violet-500/50"
+                onChange={(e) => {
+                  const newScenes = [...story.scenes];
+                  newScenes[i].prompt = e.target.value;
+                  setStory({ ...story, scenes: newScenes });
+                }}
+                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-zinc-300 leading-relaxed resize-none focus:outline-none focus:border-violet-500/50 focus:bg-black"
                 rows={4}
               />
             </div>

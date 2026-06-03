@@ -40,10 +40,15 @@ export interface OrchestratorProgressUpdate {
   errorMessage?: string | null;
 }
 
+export interface OrchestratorResult {
+  scenes: SceneDefinition[];
+  audioPrompt?: string;
+}
+
 export class NovaSceneOrchestrator {
   constructor(private provider: VideoProvider) {}
 
-  async splitPromptIntoScenes(prompt: string, targetDuration: number, visualStyle: string = "Cinematic"): Promise<SceneDefinition[]> {
+  async splitPromptIntoScenes(prompt: string, targetDuration: number, visualStyle: string = "Cinematic"): Promise<OrchestratorResult> {
     console.log(`[Orchestrator] Splitting prompt using LLM Director: "${prompt}" (Style: ${visualStyle})`);
     
     const maxChunkDuration = 3;
@@ -65,15 +70,16 @@ export class NovaSceneOrchestrator {
             messages: [
               { 
                 role: "system", 
-                content: `You are an expert cinematic AI video director and storyteller. The user will provide a master prompt for a video sequence of exactly ${targetDuration} seconds. Your job is to break it down into a sequence of distinct cut scenes.
+                content: `You are an expert cinematic AI video director and storyteller. The user will provide a master prompt for a video sequence of exactly ${targetDuration} seconds. Your job is to break it down into EXACTLY ${numScenes} distinct cut scenes.
 Rules:
 1. Each scene MUST have a duration between 2 and 3 seconds (MAXIMUM 3 seconds due to GPU memory limits).
 2. The total sum of all scene durations MUST exactly equal ${targetDuration} seconds.
 3. The user has selected the visual style: "${visualStyle}". You MUST explicitly prepend the exact visual style AND the full, detailed character/subject description to EVERY SINGLE SCENE PROMPT you generate.
 4. DO NOT omit character details in subsequent scenes. Every scene prompt must be a fully standalone description capable of generating the exact same character in the exact same style.
-5. For each scene, also write a "narration" field: a short voiceover narration line for that scene. This is what a narrator would say over the video. Write the narration in the SAME LANGUAGE as the user's master prompt. If the user writes in Hindi, narrate in Hindi. If English, narrate in English.
+5. For each scene, also write a "narration" field: a short voiceover narration line for that scene. This is what a narrator would say over the video. Write the narration in the SAME LANGUAGE as the user's master prompt.
 6. The narration should tell a story, not describe camera angles. It should be emotional, immersive, and cinematic.
-Return a JSON object with a single key "scenes" containing an array of objects, where each object has "duration" (number), "prompt" (string), and "narration" (string).`
+7. You MUST also generate an "audioPrompt" string that describes the overall background music and sound effects for the entire video (e.g. "Tense cinematic music with dramatic drum beats and ambient jungle sounds").
+Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an array of exactly ${numScenes} objects, where each object has "duration" (number), "prompt" (string), and "narration" (string)).`
               },
               { role: "user", content: `Master prompt: ${prompt}` }
             ],
@@ -118,7 +124,10 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
                runningTotal += padDuration;
             }
             
-            return scenes;
+            return {
+              scenes,
+              audioPrompt: parsed.audioPrompt || `Epic cinematic soundtrack for a ${visualStyle} video`
+            };
           }
         } else {
           console.error("[Orchestrator] OpenAI API error:", await response.text());
@@ -154,7 +163,10 @@ Return a JSON object with a single key "scenes" containing an array of objects, 
       index++;
     }
     
-    return scenes;
+    return {
+      scenes,
+      audioPrompt: `Epic cinematic soundtrack for a ${visualStyle} video`
+    };
   }
 
   async stitchScenes(videoUrls: string[], audioUrl?: string, voiceoverUrl?: string): Promise<string> {

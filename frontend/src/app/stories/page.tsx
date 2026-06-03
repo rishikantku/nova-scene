@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Loader2, Plus, Film, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Film, Clock, AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Story {
@@ -33,6 +33,25 @@ export default function StoriesPage() {
         setIsLoading(false);
       });
   }, []);
+
+  const handleDeleteStory = async (e: React.MouseEvent, storyId: string) => {
+    e.preventDefault();
+    if (!confirm("Are you sure you want to delete this story?")) return;
+    
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/stories/${storyId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setStories(stories.filter(s => s.id !== storyId));
+      } else {
+        alert("Failed to delete story.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting story.");
+    }
+  };
 
   const getStatusDisplay = (status: string) => {
     switch (status) {
@@ -119,9 +138,17 @@ export default function StoriesPage() {
                   )}
                   
                   {/* Status Badge overlays the image */}
-                  <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
                     {getStatusDisplay(story.status)}
                   </div>
+
+                  <button 
+                    onClick={(e) => handleDeleteStory(e, story.id)}
+                    className="absolute top-3 right-3 bg-black/60 backdrop-blur-md p-2 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 text-white z-20"
+                    title="Delete Story"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
 
                 {/* Content Area */}
