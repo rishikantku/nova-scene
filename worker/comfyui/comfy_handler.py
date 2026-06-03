@@ -117,8 +117,27 @@ def handler(job):
                 break
             time.sleep(2)
             
-        # Parse outputs
-        outputs = history[prompt_id].get("outputs", {})
+        # Parse outputs and check for execution errors
+        prompt_result = history[prompt_id]
+        status_info = prompt_result.get("status", {})
+        
+        # Check if execution failed
+        if status_info.get("status_str") == "error":
+            error_messages = status_info.get("messages", [])
+            # Also grab ComfyUI logs for context
+            log_content = ""
+            if os.path.exists("/workspace/comfy.log"):
+                with open("/workspace/comfy.log", "r") as f:
+                    log_content = f.read()[-3000:]
+            return {
+                "error": "ComfyUI execution failed",
+                "status": status_info,
+                "messages": error_messages,
+                "comfy_log_tail": log_content
+            }
+        
+        outputs = prompt_result.get("outputs", {})
+        print(f"[ComfyUI Worker] Execution outputs: {json.dumps(outputs, default=str)[:2000]}")
         
         # Find the saved file - VHS_VideoCombine outputs under 'gifs' key
         saved_files = []
@@ -133,7 +152,17 @@ def handler(job):
                     saved_files.append(file_info["filename"])
                     
         if not saved_files:
-            return {"error": "Workflow completed but no output files were detected.", "outputs": outputs}
+            # Grab logs to understand why no output
+            log_content = ""
+            if os.path.exists("/workspace/comfy.log"):
+                with open("/workspace/comfy.log", "r") as f:
+                    log_content = f.read()[-3000:]
+            return {
+                "error": "Workflow completed but no output files were detected.",
+                "outputs": outputs,
+                "status": status_info,
+                "comfy_log_tail": log_content
+            }
             
         # Upload the first output file to R2
         output_filename = saved_files[0]
