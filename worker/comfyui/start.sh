@@ -87,11 +87,38 @@ done
 
 echo ""
 echo "============================================="
+echo "[Startup] Warming up CUDA/cuDNN..."
+echo "============================================="
+
+# Ensure cuDNN library path is set
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}
+
+# Warm up cuDNN with a small Conv3d operation to force initialization
+python3 -c "
+import torch
+print(f'[CUDA] PyTorch version: {torch.__version__}')
+print(f'[CUDA] CUDA available: {torch.cuda.is_available()}')
+if torch.cuda.is_available():
+    print(f'[CUDA] Device: {torch.cuda.get_device_name(0)}')
+    print(f'[CUDA] cuDNN enabled: {torch.backends.cudnn.enabled}')
+    print(f'[CUDA] cuDNN version: {torch.backends.cudnn.version()}')
+    # Force cuDNN initialization with a small Conv3d
+    torch.backends.cudnn.benchmark = False
+    x = torch.randn(1, 3, 1, 4, 4, device='cuda', dtype=torch.float16)
+    w = torch.randn(3, 3, 1, 3, 3, device='cuda', dtype=torch.float16)
+    out = torch.nn.functional.conv3d(x, w, padding=1)
+    print(f'[CUDA] cuDNN warmup Conv3d OK: {out.shape}')
+    del x, w, out
+    torch.cuda.empty_cache()
+"
+
+echo ""
+echo "============================================="
 echo "[Startup] Starting ComfyUI server..."
 echo "============================================="
 
 cd /workspace/ComfyUI
-python main.py --listen 127.0.0.1 --port 8188 > /workspace/comfy.log 2>&1 &
+python main.py --listen 127.0.0.1 --port 8188 --disable-cuda-malloc > /workspace/comfy.log 2>&1 &
 
 echo "[Startup] Waiting for ComfyUI to boot..."
 sleep 15
