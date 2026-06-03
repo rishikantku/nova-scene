@@ -103,8 +103,8 @@ def handler(job):
         print(f"[Flux Worker] Running inference for prompt: \"{prompt}\"")
         start_time = time.time()
         
-        # Check if NSFW is explicitly requested via flag or prompt keywords
-        is_nsfw = job_input.get("nsfw", False) or "nsfw" in prompt.lower() or "uncensored" in prompt.lower()
+        # Check if NSFW is explicitly requested via the JSON flag
+        is_nsfw = job_input.get("nsfw", False)
         
         lora_scale = 1.0 if is_nsfw else 0.0
         enhanced_prompt = prompt + ", uncensored, nsfw" if is_nsfw else prompt
