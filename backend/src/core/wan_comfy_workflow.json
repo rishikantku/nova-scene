@@ -12,12 +12,15 @@
   },
   "2": {
     "inputs": {
+      "model_name": "split_files/text_encoders/umt5-xxl-enc-bf16.safetensors",
+      "precision": "bf16",
       "positive_prompt": "INJECT_PROMPT",
       "negative_prompt": "worst quality, blurry, mutated, ugly, deformed",
-      "force_offload": true,
-      "clip_name": "split_files/text_encoders/umt5-xxl-enc-bf16.safetensors"
+      "quantization": "disabled",
+      "use_disk_cache": true,
+      "device": "gpu"
     },
-    "class_type": "WanVideoTextEncode",
+    "class_type": "WanVideoTextEncodeCached",
     "_meta": { "title": "Text Encode" }
   },
   "3": {

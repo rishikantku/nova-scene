@@ -97,9 +97,9 @@ def handler(job):
                 node["inputs"]["image"] = filename
                 print(f"[ComfyUI Worker] Injected image '{filename}' into LoadImage node {node_id}")
                 
-            elif class_type == "WanVideoTextEncode":
+            elif class_type == "WanVideoTextEncodeCached":
                 node["inputs"]["positive_prompt"] = prompt
-                print(f"[ComfyUI Worker] Injected prompt into WanVideoTextEncode node {node_id}")
+                print(f"[ComfyUI Worker] Injected prompt into WanVideoTextEncodeCached node {node_id}")
 
         print("[ComfyUI Worker] Queuing workflow to ComfyUI...")
         queue_response = queue_prompt(workflow_json)
