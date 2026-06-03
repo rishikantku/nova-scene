@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "model": "wan2.1_i2v_720p_14B_bf16.safetensors",
+      "model": "split_files/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors",
       "base_precision": "bf16",
       "load_device": "offload_device",
       "attention_mode": "sdpa",
@@ -12,10 +12,10 @@
   },
   "2": {
     "inputs": {
-      "positive": "INJECT_PROMPT",
-      "negative": "worst quality, blurry, mutated, ugly, deformed",
+      "positive_prompt": "INJECT_PROMPT",
+      "negative_prompt": "worst quality, blurry, mutated, ugly, deformed",
       "force_offload": true,
-      "clip_name": "umt5-xxl-enc-bf16.safetensors"
+      "clip_name": "split_files/text_encoders/umt5-xxl-enc-bf16.safetensors"
     },
     "class_type": "WanVideoTextEncode",
     "_meta": { "title": "Text Encode" }
@@ -29,28 +29,14 @@
   },
   "8": {
     "inputs": {
-      "vae_name": "wan_2.1_vae.safetensors"
+      "model_name": "split_files/vae/wan_2.1_vae.safetensors"
     },
-    "class_type": "VAELoader",
-    "_meta": { "title": "Load VAE" }
-  },
-  "9": {
-    "inputs": {
-      "clip_name": "clip_vision_h.safetensors"
-    },
-    "class_type": "CLIPVisionLoader",
-    "_meta": { "title": "Load CLIP Vision" }
-  },
-  "10": {
-    "inputs": {
-      "image": ["3", 0],
-      "clip_vision": ["9", 0]
-    },
-    "class_type": "CLIPVisionEncode",
-    "_meta": { "title": "CLIP Vision Encode" }
+    "class_type": "WanVideoVAELoader",
+    "_meta": { "title": "Load WAN VAE" }
   },
   "4": {
     "inputs": {
+      "clip_name": "split_files/clip_vision/clip_vision_h.safetensors",
       "width": 832,
       "height": 480,
       "num_frames": 81,
@@ -59,8 +45,7 @@
       "end_latent_strength": 1.0,
       "force_offload": true,
       "vae": ["8", 0],
-      "start_image": ["3", 0],
-      "clip_embeds": ["10", 0]
+      "start_image": ["3", 0]
     },
     "class_type": "WanVideoImageToVideoEncode",
     "_meta": { "title": "I2V Encode" }
