@@ -74,7 +74,7 @@ def handler(job):
         
         # 1. Download Dataset
         # Kohya expects folders in format: {repeats}_{trigger_token}
-        concept_dir = os.path.join(img_dir, f"20_{trigger_token}")
+        concept_dir = os.path.join(img_dir, f"10_{trigger_token}")
         os.makedirs(concept_dir, exist_ok=True)
         
         for idx, url in enumerate(dataset_urls):
@@ -108,12 +108,12 @@ def handler(job):
             f"--logging_dir={log_dir}",
             "--resolution=1024,1024",
             "--train_batch_size=1",
-            "--learning_rate=1e-4",
+            "--learning_rate=5e-4",
             "--lr_scheduler=cosine",
             "--lr_warmup_steps=0",
-            "--max_train_epochs=10",
-            "--network_dim=32",
-            "--network_alpha=16",
+            "--max_train_epochs=3",
+            "--network_dim=16",
+            "--network_alpha=8",
             "--network_module=networks.lora",
             "--save_model_as=safetensors",
             "--mixed_precision=fp16",
