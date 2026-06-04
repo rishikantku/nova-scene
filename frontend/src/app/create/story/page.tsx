@@ -38,7 +38,7 @@ export default function StoryWizard() {
   useEffect(() => {
     if (step === 2 && libraryCharacters.length === 0) {
       setIsLoadingCast(true);
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/characters`)
+      fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/characters`)
         .then(res => res.json())
         .then(data => {
           setLibraryCharacters(data.characters || []);
@@ -56,7 +56,7 @@ export default function StoryWizard() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories`, {
+      const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -92,7 +92,7 @@ export default function StoryWizard() {
     // But since we already created it in Step 1, let's just trigger board generation.
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${storyId}/generate-board`, {
+      const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories/${storyId}/generate-board`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ castIds: selectedCastIds })

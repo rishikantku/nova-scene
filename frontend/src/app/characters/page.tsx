@@ -26,7 +26,7 @@ export default function CharacterLibrary() {
 
   useEffect(() => {
     const fetchCharacters = () => {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/characters`)
+      fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/characters`)
         .then(res => res.json())
         .then(data => {
           setCharacters(data.characters || []);
@@ -49,7 +49,7 @@ export default function CharacterLibrary() {
     
     setDeletingId(id);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/characters/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/characters/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setCharacters(prev => prev.filter(c => c.id !== id));
       } else {
@@ -92,7 +92,7 @@ export default function CharacterLibrary() {
     setRegeneratingId(charId);
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/characters/${charId}/regenerate`, {
+      const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/characters/${charId}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updateData)

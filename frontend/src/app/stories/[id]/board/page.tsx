@@ -36,7 +36,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     let interval: NodeJS.Timeout;
     const fetchStory = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}`);
+        const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories/${id}`);
         if (res.ok) {
           const data = await res.json();
           setStory(data);
@@ -62,7 +62,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     setIsRendering(true);
     try {
       if (!story) return;
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}/render`, { 
+      await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories/${id}/render`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scenes: story.scenes, audioPrompt: story.audioPrompt })
@@ -71,7 +71,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
       // The initial polling interval was cleared because the status was 'board_ready'.
       // We must manually poll here until it completes.
       const renderInterval = setInterval(async () => {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}`);
+        const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories/${id}`);
         if (res.ok) {
           const data = await res.json();
           setStory(data);
@@ -92,7 +92,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     if (!confirm("Are you sure you want to delete this scene?")) return;
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}/scenes/${sceneId}`, {
+      const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories/${id}/scenes/${sceneId}`, {
         method: 'DELETE'
       });
       if (res.ok) {

@@ -115,7 +115,7 @@ export default function Home() {
   const handleApprove = async () => {
     if (!job) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs/${job.job_id}/approve`, {
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/jobs/${job.job_id}/approve`, {
         method: "POST"
       });
       if (!response.ok) throw new Error("Failed to approve job");
@@ -138,7 +138,7 @@ export default function Home() {
   const handleSaveScene = async (sceneId: string) => {
     if (!job) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs/${job.job_id}/scenes/${sceneId}`, {
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/jobs/${job.job_id}/scenes/${sceneId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: editPrompt, duration: editDuration })
@@ -168,7 +168,7 @@ export default function Home() {
         payload.audio_prompt = audioPrompt.trim() ? audioPrompt.trim() : prompt;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs`, {
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/jobs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -197,7 +197,7 @@ export default function Home() {
 
       const pollJobStatus = async () => {
         try {
-          const statusRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs/${data.job_id}`);
+          const statusRes = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/jobs/${data.job_id}`);
           if (!statusRes.ok) return;
           const update = await statusRes.json();
           
