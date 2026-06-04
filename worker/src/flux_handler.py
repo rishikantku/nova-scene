@@ -141,8 +141,8 @@ def handler(job):
         }
         
         if init_image:
-            # Switch to Img2Img pipeline on the fly (shares the exact same weights in VRAM)
-            img2img_pipe = FluxImg2ImgPipeline(**pipeline.components)
+            # Switch to Img2Img pipeline on the fly using the official from_pipe method
+            img2img_pipe = FluxImg2ImgPipeline.from_pipe(pipeline)
             gen_kwargs["image"] = init_image
             gen_kwargs["strength"] = 0.75 # Keep 25% of the original image character/structure
             image = img2img_pipe(**gen_kwargs).images[0]
