@@ -279,7 +279,30 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
         });
       }
       
-      finalVideoUrl = `http://localhost:8000/static/final_${jobId}.mp4`;
+      if (process.env.R2_ENDPOINT_URL) {
+        console.log(`[Orchestrator] Uploading stitched video to Cloudflare R2...`);
+        const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+        const s3 = new S3Client({
+          region: 'auto',
+          endpoint: process.env.R2_ENDPOINT_URL,
+          credentials: {
+            accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+          },
+        });
+        const videoBuffer = await fs.readFile(outPathPublic);
+        const r2Key = `scenes/final_${jobId}.mp4`;
+        await s3.send(new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: r2Key,
+          Body: videoBuffer,
+          ContentType: 'video/mp4',
+        }));
+        finalVideoUrl = `${process.env.R2_CDN_URL}/${r2Key}`;
+        console.log(`[Orchestrator] Stitched video uploaded to R2: ${finalVideoUrl}`);
+      } else {
+        finalVideoUrl = `http://localhost:8000/static/final_${jobId}.mp4`;
+      }
       
       // 4. Cleanup temp files
       for (const p of localVideoPaths) {

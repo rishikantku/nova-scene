@@ -2,7 +2,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import fs from 'fs';
 
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1'
+  region: process.env.AWS_REGION || 'ap-south-1'
 });
 
 const S3_BUCKET = process.env.S3_DB_BUCKET;

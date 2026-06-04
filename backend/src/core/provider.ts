@@ -41,19 +41,18 @@ export class MockVideoProvider implements VideoProvider {
   async generateMotion(imageUrl: string, prompt: string, duration: number, videoEngine: string, options?: Record<string, any>): Promise<string> {
     console.log(`[MockProvider] Generating ${videoEngine} motion clip using image: ${imageUrl}`);
     await new Promise(resolve => setTimeout(resolve, 2000));
-    // Return local playable video
-    return "http://localhost:8000/static/video.mp4";
+    return "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/comfy_e4d093930ec84cac983b6a83c1fb3471.mp4";
   }
 
   async generateAudio(prompt: string, duration: number, options?: Record<string, any>): Promise<string> {
     console.log(`[MockProvider] Generating AudioLDM2 audio for prompt: "${prompt}"`);
     await new Promise(resolve => setTimeout(resolve, 1000));
-    return "http://localhost:8000/static/audio.mp3";
+    return "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/audio_74c79a87-2392-4683-8084-e986b4d143fd.wav";
   }
 
   async generateVoiceover(text: string, voice?: string, options?: Record<string, any>): Promise<string> {
     console.log(`[MockProvider] Generating voiceover: "${text.substring(0, 50)}..."`);
     await new Promise(resolve => setTimeout(resolve, 500));
-    return "http://localhost:8000/static/voiceover.mp3";
+    return "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/audio_74c79a87-2392-4683-8084-e986b4d143fd.wav";
   }
 }
