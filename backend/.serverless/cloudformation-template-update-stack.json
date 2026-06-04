@@ -135,7 +135,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
-          "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+          "S3Key": "serverless/nova-scene-backend/dev/1780590672174-2026-06-04T16:31:12.174Z/nova-scene-backend.zip"
         },
         "Handler": "src/lambda.handler",
         "Runtime": "nodejs18.x",
@@ -179,7 +179,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
-          "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+          "S3Key": "serverless/nova-scene-backend/dev/1780590672174-2026-06-04T16:31:12.174Z/nova-scene-backend.zip"
         },
         "Handler": "src/sqsWorker.handler",
         "Runtime": "nodejs18.x",
@@ -218,24 +218,24 @@
         "WorkerLogGroup"
       ]
     },
-    "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo": {
+    "ApiLambdaVersionaK0ExMqCINHpWykoLaMoFAss9sd5NxBu0SB3HuxZ6M": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ApiLambdaFunction"
         },
-        "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+        "CodeSha256": "tBqgOs2xDAIrlD/F6tTc1rWX5Sjp+CELOxmuZR5Cntg="
       }
     },
-    "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE": {
+    "WorkerLambdaVersionAzFcbXB4yfjVqrvMK4WNvyiEuv8izesTtQNiRBz4": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "WorkerLambdaFunction"
         },
-        "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+        "CodeSha256": "tBqgOs2xDAIrlD/F6tTc1rWX5Sjp+CELOxmuZR5Cntg="
       }
     },
     "WorkerEventSourceMappingSQSNovaSceneRenderQueue": {
@@ -373,7 +373,7 @@
     "ApiLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo"
+        "Ref": "ApiLambdaVersionaK0ExMqCINHpWykoLaMoFAss9sd5NxBu0SB3HuxZ6M"
       },
       "Export": {
         "Name": "sls-nova-scene-backend-dev-ApiLambdaFunctionQualifiedArn"
@@ -382,7 +382,7 @@
     "WorkerLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE"
+        "Ref": "WorkerLambdaVersionAzFcbXB4yfjVqrvMK4WNvyiEuv8izesTtQNiRBz4"
       },
       "Export": {
         "Name": "sls-nova-scene-backend-dev-WorkerLambdaFunctionQualifiedArn"
