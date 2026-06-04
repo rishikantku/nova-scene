@@ -9,7 +9,7 @@ from botocore.config import Config
 import requests
 from io import BytesIO
 from PIL import Image
-from diffusers import FluxPipeline
+from diffusers import FluxPipeline, FluxImg2ImgPipeline
 import runpod
 
 # Load configurations from environment variables
@@ -63,15 +63,6 @@ def get_pipeline():
         
         # Enable CPU offloading to avoid CUDA OOM on 24GB GPUs.
         pipe.enable_model_cpu_offload()
-        
-        # Load IP-Adapter weights for Reference-Based Character Extraction
-        print("[Flux Worker] Loading XLabs IP-Adapter...")
-        try:
-            pipe.load_ip_adapter("XLabs-AI/flux-ip-adapter", weight_name="flux-ip-adapter.safetensors")
-            print("[Flux Worker] IP-Adapter loaded successfully.")
-        except Exception as e:
-            print(f"[Flux Worker] WARNING: Could not load IP-Adapter: {e}")
-
         print("[Flux Worker] Model loaded with CPU offloading enabled.")
     return pipe
 
@@ -121,23 +112,20 @@ def handler(job):
         lora_scale = 1.0 if is_nsfw else 0.0
         enhanced_prompt = prompt + ", uncensored, nsfw" if is_nsfw else prompt
         
-        # Check for Image Prompt (IP-Adapter)
+        # Check for Image Prompt (Style Transfer / Character Reference)
         image_prompt_url = job_input.get("image_prompt_url")
-        ip_adapter_image = None
+        init_image = None
         if image_prompt_url:
             print(f"[Flux Worker] Downloading reference image from {image_prompt_url}...")
             response = requests.get(image_prompt_url)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGB")
                 
-                # Resize image if too large to prevent unexpected memory spikes
-                max_dim = 1024
-                if img.width > max_dim or img.height > max_dim:
-                    img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                # Resize image to target generation dimensions for exact 1:1 img2img
+                img = img.resize((width, height), Image.Resampling.LANCZOS)
                 
-                ip_adapter_image = img
-                pipeline.set_ip_adapter_scale(0.8)
-                print(f"[Flux Worker] Reference image loaded and resized for IP-Adapter ({img.width}x{img.height}).")
+                init_image = img
+                print(f"[Flux Worker] Reference image loaded and resized for Img2Img ({width}x{height}).")
             else:
                 print(f"[Flux Worker] Failed to download reference image: HTTP {response.status_code}")
 
@@ -152,10 +140,14 @@ def handler(job):
             "joint_attention_kwargs": {"scale": lora_scale} # Activate LoRA only for NSFW requests
         }
         
-        if ip_adapter_image:
-            gen_kwargs["ip_adapter_image"] = ip_adapter_image
-            
-        image = pipeline(**gen_kwargs).images[0]
+        if init_image:
+            # Switch to Img2Img pipeline on the fly (shares the exact same weights in VRAM)
+            img2img_pipe = FluxImg2ImgPipeline(**pipeline.components)
+            gen_kwargs["image"] = init_image
+            gen_kwargs["strength"] = 0.75 # Keep 25% of the original image character/structure
+            image = img2img_pipe(**gen_kwargs).images[0]
+        else:
+            image = pipeline(**gen_kwargs).images[0]
         
         inference_time = time.time() - start_time
         print(f"[Flux Worker] Inference completed in {inference_time:.2f} seconds.")
