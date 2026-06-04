@@ -10,6 +10,17 @@
       "visualStyle": "Pixar 3D Animation",
       "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_56aa39af-d0b4-419a-a9c7-89af20100786.jpg",
       "createdAt": "2026-06-03T21:18:59.322Z"
+    },
+    "7bf76abf-c8c7-43fa-9788-08c8a758c479": {
+      "id": "7bf76abf-c8c7-43fa-9788-08c8a758c479",
+      "name": "Tamatart - Supergirl",
+      "gender": "female",
+      "appearance": "Tamatar is 2 year old cute indian girl superhero. Very couragous and bubbly",
+      "outfit": "Cute kid superhero girl dress",
+      "visualStyle": "Pixar 3D Animation",
+      "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_8c2e5829-972a-4b9e-9f83-912a3ca8b858.jpg",
+      "createdAt": "2026-06-04T09:47:48.101Z",
+      "loraId": "4dfaf241-f34f-4b7b-8f1f-1b10f45f002e"
     }
   },
   "stories": {
@@ -56,55 +67,133 @@
       "createdAt": "2026-06-02T20:43:45.074Z",
       "finalVideoUrl": "http://localhost:8000/static/final_301888a5-b28b-4f57-b6ee-91f656a509ec.mp4"
     },
-    "5a65991f-ec72-4851-87cc-c2f6e6223eba": {
-      "id": "5a65991f-ec72-4851-87cc-c2f6e6223eba",
-      "title": "Tamatar went for a jungle safari. Tamatar saw that a deer is being chased by lion. Tamatar stepped down and made lion understand that killing someone for food is not good. And finally, gave something to the lion to eat as well as deer to eat.",
+    "a0740211-f83e-4682-87bc-67f8e67549a6": {
+      "id": "a0740211-f83e-4682-87bc-67f8e67549a6",
+      "title": "Tamatar visiting circus for the first time. Suddely circus caught fire. Tamatar rescued all animals",
       "genre": "Cinematic",
       "visualStyle": "Pixar 3D",
       "targetDuration": 10,
       "videoEngine": "wan",
       "includeAudio": true,
-      "audioPrompt": "Epic cinematic music with cheerful orchestral melodies and immersive jungle ambiance, featuring the sounds of wildlife.",
+      "audioPrompt": "Optimistic orchestral music turning thrilling and dramatic as tension escalates, interspersed with sounds of circus ambiance, crowd murmurs, and eventually, frantic animal noises and crackling fire sounds.",
       "castIds": [
         "56cbbb80-d4c4-4fe5-b60c-30ce4c152736"
       ],
-      "status": "failed",
+      "status": "completed",
       "scenes": [
         {
-          "id": "scene-0-a116d247-64be-4a25-8e63-55d5d0208383",
+          "id": "scene-0-ea01224f-64f7-45c6-900d-cbf1021403f2",
           "index": 0,
-          "prompt": "Action: Pixar 3D style. A cute, bubbly, 2-year-old Indian girl named Tamatar, very adventurous and attractive, known for her notorious charm, dressed in cute and colorful outfits, embarks on a thrilling jungle safari. She sits in a safari vehicle, eyes wide with wonder, absorbing the lush greenery and vibrant wildlife surrounding her. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "prompt": "Action: Pixar 3D: A cute, bubbly, 2-year-old Indian girl named Tamatar with very adventurous, attractive, and cute personality, wearing cute and colorful outfits. She stands wide-eyed and joyous as she enters the vibrant, bustling circus for the first time, captivated by the dazzling array of colorful tents and cheerful performers. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
           "duration": 3,
-          "status": "generating_image",
-          "imageUrl": null
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_dd0a0245-4c85-4cf2-91fc-52e7ded0dadf.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/comfy_a34b8b047dbe4304a19a99eab5e69ce8.mp4"
         },
         {
-          "id": "scene-1-e7707177-14ed-4b32-8bb5-52b60be28667",
+          "id": "scene-1-e17ea5c8-6987-475e-9345-134f5ea0ff4e",
           "index": 1,
-          "prompt": "Action: Pixar 3D style. Tamatar, the cute, bubbly, 2-year-old Indian girl, very adventurous and attractive with notorious charm, dressed in cute and colorful outfits, witnesses a dramatic scene unfold: a deer sprinting for its life while a lion closes in, muscles rippling with each powerful stride. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "prompt": "Action: Pixar 3D: Tamatar, the adorable and adventurous 2-year-old Indian girl, still in her cute and colorful outfit, sits excitedly in the audience, her eyes sparkling with wonder as performers juggle and acrobats soar through the air under the big top. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
           "duration": 2,
-          "status": "pending",
-          "imageUrl": null
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_0d87a7cb-43bd-451a-98d3-4025b99bddfe.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/comfy_e68b4860abe74fcd8816ca16fcc20377.mp4"
         },
         {
-          "id": "scene-2-efb51e96-902a-4064-873d-61b2c5c21b14",
+          "id": "scene-2-129e9577-dcfb-4562-ac6e-9f2c014dbd63",
           "index": 2,
-          "prompt": "Action: Pixar 3D style. Tamatar, the cute, bubbly, 2-year-old Indian girl, very adventurous and attractive with notorious charm, dressed in cute and colorful outfits. She bravely steps down from the safari vehicle, raising her tiny hand and approaching the fierce lion with innocent confidence, communicating her compassionate message. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "prompt": "Action: Pixar 3D: Tamatar, the cute and adventurous 2-year-old Indian girl in her colorful outfit, notices smoke rising from the back of the circus tents. Her expression shifts from amusement to concern as commotion starts, with frightened animals starting to panic amidst the crackle of spreading flames. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
           "duration": 2,
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_041084e7-99e1-4a77-aeed-f98c3853c555.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/comfy_9b2446fe5e964759bf20034fe2fb4790.mp4"
+        },
+        {
+          "id": "scene-3-5d620d9d-eaa7-466f-808f-5ef61d74f866",
+          "index": 3,
+          "prompt": "Action: Pixar 3D: The daring and courageous 2-year-old Tamatar, in her vibrant and colorful attire, with unwavering determination on her cute face, braves the chaos to lead bewildered animals to safety, her adventurous spirit shining through as she becomes the unsuspected hero amidst the turmoil. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "duration": 3,
+          "status": "completed",
+          "imageUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_3975e7ab-fb20-4028-9aa9-e9a23a32d46e.jpg",
+          "videoUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/comfy_e4d093930ec84cac983b6a83c1fb3471.mp4"
+        }
+      ],
+      "createdAt": "2026-06-04T09:40:27.849Z",
+      "finalVideoUrl": "http://localhost:8000/static/final_1ec5e5ac-5aae-4425-98f4-6ba55edb2a8f.mp4",
+      "generatedAudioUrl": "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/scenes/audio_74c79a87-2392-4683-8084-e986b4d143fd.wav"
+    },
+    "4f4e2355-a637-4b09-b04d-3f0cd0d474b2": {
+      "id": "4f4e2355-a637-4b09-b04d-3f0cd0d474b2",
+      "title": "Tamatar in Jungle Safari. Tamatar saw deer chased by lion. Tamatar helped deer and make undertand lion that killing someone for food is not good. and finally gave both deer and lion fruits to eat.",
+      "genre": "Cinematic",
+      "visualStyle": "Pixar 3D",
+      "targetDuration": 15,
+      "videoEngine": "wan",
+      "includeAudio": true,
+      "audioPrompt": "Adventurous and heartwarming orchestral score with occasional animal sounds like lion roars and rustling leaves.",
+      "castIds": [
+        "56cbbb80-d4c4-4fe5-b60c-30ce4c152736"
+      ],
+      "status": "board_ready",
+      "scenes": [
+        {
+          "id": "scene-0-5e8f08d6-d697-49d0-9ee0-3c52c0acc35a",
+          "index": 0,
+          "prompt": "Action: Pixar 3D: In a vibrant jungle, Tamatar, a cute, bubbly 2-year-old Indian girl, is seen wearing a cute and colorful outfit. She is wide-eyed and filled with wonder, as she peeks through lush green foliage, spotting various birds and animals around her. Her adventurous and attractive nature, coupled with a tinge of notoriousness, is evident from her expressions. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "duration": 3,
           "status": "pending",
           "imageUrl": null
         },
         {
-          "id": "scene-3-cff9b02a-264c-44a9-8f9a-68fe3a7f3136",
+          "id": "scene-1-b4c7a895-481d-431c-a19f-639e97c904a8",
+          "index": 1,
+          "prompt": "Action: Pixar 3D: As Tamatar ventures deeper into the jungle, she suddenly pauses, witnessing a dramatic chase. The bubbly 2-year-old girl, in her cute and colorful outfit, watches as a swift deer desperately darts away from a fierce lion with a determined gait. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "duration": 3,
+          "status": "pending",
+          "imageUrl": null
+        },
+        {
+          "id": "scene-2-5f7b706d-b7f2-4d5d-9cb7-6c9d69753519",
+          "index": 2,
+          "prompt": "Action: Pixar 3D: With determination, Tamatar steps forward, her luminous eyes filled with empathy. The adorable and adventurous Indian girl, clad in her colorful attire, gestures to the lion and the deer, trying to make them understand the crude reality of such pursuits. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "duration": 3,
+          "status": "pending",
+          "imageUrl": null
+        },
+        {
+          "id": "scene-3-c396dc85-ca8e-4de6-8c97-f7113ca4f1e8",
           "index": 3,
-          "prompt": "Action: Pixar 3D style. Tamatar, the cute, bubbly, 2-year-old Indian girl, very adventurous and attractive with notorious charm, dressed in cute and colorful outfits, smiles as she offers food to both the lion and the deer, who stand peacefully beside her, their eyes filled with understanding and gratitude. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "prompt": "Action: Pixar 3D: Tamatar, the sweet and vivacious 2-year-old, now orchestrates a moment of harmony. Her infectious energy, matched by her colorful outfit, invites both the lion and the deer to join her. They curiously listen as she explains the beauty of compassion and the value of kindness. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
+          "duration": 3,
+          "status": "pending",
+          "imageUrl": null
+        },
+        {
+          "id": "scene-4-5631dd13-69a0-4635-ab04-76873c459c4a",
+          "index": 4,
+          "prompt": "Action: Pixar 3D: Smiling with satisfaction, Tamatar shares a bounty of fruits with both the lion and the deer. The jungle scene is joyful, her cute and colorful dress adding to her radiant presence, as they unite in unexpected friendship, savoring the juicy offerings. | Character details: (Masterpiece, best quality, highly detailed). Main subject: Tamatar. Appearance: a cute, bubbly, 2 year old Indian girl, very adventurous, attractive, and cute, as well as notorious.. Outfit: Cute and coloful outfits. ",
           "duration": 3,
           "status": "pending",
           "imageUrl": null
         }
       ],
-      "createdAt": "2026-06-03T23:03:31.362Z"
+      "createdAt": "2026-06-04T16:07:34.930Z"
     }
   },
-  "loras": {}
+  "loras": {
+    "4dfaf241-f34f-4b7b-8f1f-1b10f45f002e": {
+      "id": "4dfaf241-f34f-4b7b-8f1f-1b10f45f002e",
+      "characterId": "7bf76abf-c8c7-43fa-9788-08c8a758c479",
+      "version": 1,
+      "triggerToken": "ohwx tamatartsupergirl",
+      "datasetUrls": [
+        "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_70344715-007c-45da-9034-06d02234ed63.jpg",
+        "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_db8c2dc5-f448-46a7-bf2f-ff286f830f5f.jpg",
+        "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_b4b0d770-d207-40cb-974f-55395ebb4792.jpg",
+        "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_7efaea5b-7360-448b-a625-2aa26d2f2688.jpg"
+      ],
+      "status": "failed",
+      "createdAt": "2026-06-04T09:48:52.617Z"
+    }
+  }
 }

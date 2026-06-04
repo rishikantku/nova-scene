@@ -70,7 +70,7 @@ export default function Home() {
   const [editDuration, setEditDuration] = useState(5);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-scroll logs
   useEffect(() => {
@@ -80,9 +80,7 @@ export default function Home() {
   // Clean up SSE connection on unmount
   useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
 
@@ -117,7 +115,7 @@ export default function Home() {
   const handleApprove = async () => {
     if (!job) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/jobs/${job.job_id}/approve`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs/${job.job_id}/approve`, {
         method: "POST"
       });
       if (!response.ok) throw new Error("Failed to approve job");
@@ -140,7 +138,7 @@ export default function Home() {
   const handleSaveScene = async (sceneId: string) => {
     if (!job) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/jobs/${job.job_id}/scenes/${sceneId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs/${job.job_id}/scenes/${sceneId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: editPrompt, duration: editDuration })
@@ -170,7 +168,7 @@ export default function Home() {
         payload.audio_prompt = audioPrompt.trim() ? audioPrompt.trim() : prompt;
       }
 
-      const response = await fetch("http://localhost:8000/api/v1/jobs", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -192,49 +190,54 @@ export default function Home() {
         scenes: []
       });
 
-      // Connect to EventSource (SSE)
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+      // Poll every 15 seconds instead of SSE for AWS Serverless compatibility
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
       }
 
-      const es = new EventSource(`http://localhost:8000/api/v1/jobs/${data.job_id}/stream`);
-      eventSourceRef.current = es;
+      const pollJobStatus = async () => {
+        try {
+          const statusRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/jobs/${data.job_id}`);
+          if (!statusRes.ok) return;
+          const update = await statusRes.json();
+          
+          setJob(update);
+          addLog(`Pipeline stage: ${update.status.toUpperCase()} (${update.overall_progress}%)`);
 
-      es.onmessage = (event) => {
-        const update = JSON.parse(event.data);
-        setJob(update);
-        addLog(`Pipeline stage: ${update.status.toUpperCase()} (${update.overall_progress}%)`);
-
-        // Auto-select first completed scene if nothing selected yet
-        const completedScenes = update.scenes.filter((s: Scene) => s.status === 'completed' && s.videoUrl);
-        if (completedScenes.length > 0 && !selectedPreview && update.status !== "completed") {
-          const firstScene = completedScenes[0];
-          setSelectedPreview({
-            url: firstScene.videoUrl!,
-            title: `Scene ${firstScene.index} Preview`
-          });
-        }
-
-        if (update.status === "completed") {
-          addLog("Cinematic rendering complete! Video compiled successfully.");
-          setIsLoading(false);
-          if (update.video) {
+          // Auto-select first completed scene if nothing selected yet
+          const completedScenes = update.scenes.filter((s: Scene) => s.status === 'completed' && s.videoUrl);
+          if (completedScenes.length > 0 && !selectedPreview && update.status !== "completed") {
+            const firstScene = completedScenes[0];
             setSelectedPreview({
-              url: update.video.videoUrl,
-              title: "Full Stitched Video"
+              url: firstScene.videoUrl!,
+              title: `Scene ${firstScene.index} Preview`
             });
           }
-          es.close();
-        } else if (update.status === "failed") {
-          addLog(`Pipeline failed: ${update.error_message}`);
-          setIsLoading(false);
-          es.close();
+
+          if (update.status === "completed") {
+            addLog("Cinematic rendering complete! Video compiled successfully.");
+            setIsLoading(false);
+            if (update.video) {
+              setSelectedPreview({
+                url: update.video.videoUrl,
+                title: "Full Stitched Video"
+              });
+            }
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          } else if (update.status === "failed") {
+            addLog(`Pipeline failed: ${update.error_message}`);
+            setIsLoading(false);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          }
+        } catch (err) {
+          addLog("Polling error: disconnected. Retrying...");
         }
       };
 
-      es.onerror = () => {
-        addLog("SSE Connection disconnected. Retrying...");
-      };
+      // Start polling
+      pollIntervalRef.current = setInterval(pollJobStatus, 15000);
+      // Immediately run once
+      pollJobStatus();
 
     } catch (error: any) {
       addLog(`Error: ${error.message}`);
@@ -681,7 +684,7 @@ export default function Home() {
                               setSelectedPreview({ url: scene.videoUrl!, title: `Scene ${scene.index} Preview` });
                             }
                           }}
-                          className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-all select-none ${
+                          className={`relative p-3 rounded-xl border flex flex-col gap-1.5 transition-all select-none overflow-hidden group ${
                             isComplete
                               ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50 hover:bg-emerald-500/10 cursor-pointer"
                               : scene.status === 'failed'
@@ -692,7 +695,14 @@ export default function Home() {
                           }`}
                           title={isComplete ? "Click to play scene preview" : undefined}
                         >
-                          <div className="flex justify-between items-center">
+                          {isComplete && (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10 backdrop-blur-[1px]">
+                              <div className="w-8 h-8 rounded-full bg-emerald-500/90 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-all duration-300">
+                                <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center relative z-0">
                             <span className="text-[10px] font-semibold text-zinc-400">Scene {scene.index}</span>
                             <span className="text-[9px] text-zinc-500 font-mono font-semibold">{scene.duration}s</span>
                           </div>

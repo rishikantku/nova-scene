@@ -1,0 +1,1514 @@
+{
+  "/Users/rishi/code/nova-scene/backend/serverless.yml": {
+    "versionFramework": "4.37.0",
+    "servicePath": "/Users/rishi/code/nova-scene/backend/serverless.yml",
+    "serviceConfigFileName": "serverless.yml",
+    "service": {
+      "service": "nova-scene-backend",
+      "provider": {
+        "name": "aws",
+        "runtime": "nodejs18.x",
+        "region": "ap-south-1",
+        "memorySize": 512,
+        "environment": {
+          "SQS_QUEUE_URL": {
+            "Ref": "NovaSceneRenderQueue"
+          },
+          "S3_DB_BUCKET": "novascene-db-1780577875",
+          "R2_ENDPOINT_URL": "",
+          "R2_ACCESS_KEY_ID": "<REDACTED>",
+          "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+          "R2_BUCKET_NAME": "",
+          "R2_CDN_URL": "",
+          "RUNPOD_API_KEY": "<REDACTED>",
+          "RUNPOD_FLUX_ENDPOINT_ID": "",
+          "RUNPOD_WAN_ENDPOINT_ID": "",
+          "RUNPOD_LTX_ENDPOINT_ID": "",
+          "RUNPOD_AUDIO_ENDPOINT_ID": "",
+          "RUNPOD_LORA_ENDPOINT_ID": "",
+          "OPENAI_API_KEY": "<REDACTED>"
+        },
+        "iam": {
+          "role": {
+            "statements": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "sqs:SendMessage"
+                ],
+                "Resource": [
+                  {
+                    "Fn::GetAtt": [
+                      "NovaSceneRenderQueue",
+                      "Arn"
+                    ]
+                  }
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:GetObject",
+                  "s3:PutObject"
+                ],
+                "Resource": "arn:aws:s3:::novascene-db-1780577875/*"
+              }
+            ]
+          }
+        },
+        "stage": "dev",
+        "versionFunctions": true,
+        "compiledCloudFormationTemplate": {
+          "AWSTemplateFormatVersion": "2010-09-09",
+          "Description": "The AWS CloudFormation template for this Serverless application",
+          "Resources": {
+            "ApiLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/nova-scene-backend-dev-api"
+              }
+            },
+            "WorkerLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/nova-scene-backend-dev-worker"
+              }
+            },
+            "IamRoleLambdaExecution": {
+              "Type": "AWS::IAM::Role",
+              "Properties": {
+                "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": [
+                          "lambda.amazonaws.com"
+                        ]
+                      },
+                      "Action": [
+                        "sts:AssumeRole"
+                      ]
+                    }
+                  ]
+                },
+                "Policies": [
+                  {
+                    "PolicyName": {
+                      "Fn::Join": [
+                        "-",
+                        [
+                          "nova-scene-backend",
+                          "dev",
+                          "lambda"
+                        ]
+                      ]
+                    },
+                    "PolicyDocument": {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:CreateLogStream",
+                            "logs:CreateLogGroup",
+                            "logs:TagResource"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/nova-scene-backend-dev*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/nova-scene-backend-dev*:*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "sqs:SendMessage"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::GetAtt": [
+                                "NovaSceneRenderQueue",
+                                "Arn"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "s3:GetObject",
+                            "s3:PutObject"
+                          ],
+                          "Resource": "arn:aws:s3:::novascene-db-1780577875/*"
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "sqs:ReceiveMessage",
+                            "sqs:DeleteMessage",
+                            "sqs:GetQueueAttributes"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::GetAtt": [
+                                "NovaSceneRenderQueue",
+                                "Arn"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "Path": "/",
+                "RoleName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "nova-scene-backend",
+                      "dev",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "lambdaRole"
+                    ]
+                  ]
+                }
+              }
+            },
+            "ApiLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+                  "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+                },
+                "Handler": "src/lambda.handler",
+                "Runtime": "nodejs18.x",
+                "FunctionName": "nova-scene-backend-dev-api",
+                "MemorySize": 512,
+                "Timeout": 6,
+                "Environment": {
+                  "Variables": {
+                    "SQS_QUEUE_URL": {
+                      "Ref": "NovaSceneRenderQueue"
+                    },
+                    "S3_DB_BUCKET": "novascene-db-1780577875",
+                    "R2_ENDPOINT_URL": "",
+                    "R2_ACCESS_KEY_ID": "<REDACTED>",
+                    "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+                    "R2_BUCKET_NAME": "",
+                    "R2_CDN_URL": "",
+                    "RUNPOD_API_KEY": "<REDACTED>",
+                    "RUNPOD_FLUX_ENDPOINT_ID": "",
+                    "RUNPOD_WAN_ENDPOINT_ID": "",
+                    "RUNPOD_LTX_ENDPOINT_ID": "",
+                    "RUNPOD_AUDIO_ENDPOINT_ID": "",
+                    "RUNPOD_LORA_ENDPOINT_ID": "",
+                    "OPENAI_API_KEY": "<REDACTED>",
+                    "NODE_OPTIONS": "--enable-source-maps"
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "IamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                }
+              },
+              "DependsOn": [
+                "ApiLogGroup"
+              ]
+            },
+            "WorkerLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+                  "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+                },
+                "Handler": "src/sqsWorker.handler",
+                "Runtime": "nodejs18.x",
+                "FunctionName": "nova-scene-backend-dev-worker",
+                "MemorySize": 512,
+                "Timeout": 900,
+                "Environment": {
+                  "Variables": {
+                    "SQS_QUEUE_URL": {
+                      "Ref": "NovaSceneRenderQueue"
+                    },
+                    "S3_DB_BUCKET": "novascene-db-1780577875",
+                    "R2_ENDPOINT_URL": "",
+                    "R2_ACCESS_KEY_ID": "<REDACTED>",
+                    "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+                    "R2_BUCKET_NAME": "",
+                    "R2_CDN_URL": "",
+                    "RUNPOD_API_KEY": "<REDACTED>",
+                    "RUNPOD_FLUX_ENDPOINT_ID": "",
+                    "RUNPOD_WAN_ENDPOINT_ID": "",
+                    "RUNPOD_LTX_ENDPOINT_ID": "",
+                    "RUNPOD_AUDIO_ENDPOINT_ID": "",
+                    "RUNPOD_LORA_ENDPOINT_ID": "",
+                    "OPENAI_API_KEY": "<REDACTED>",
+                    "NODE_OPTIONS": "--enable-source-maps"
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "IamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                }
+              },
+              "DependsOn": [
+                "WorkerLogGroup"
+              ]
+            },
+            "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "ApiLambdaFunction"
+                },
+                "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+              }
+            },
+            "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "WorkerLambdaFunction"
+                },
+                "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+              }
+            },
+            "WorkerEventSourceMappingSQSNovaSceneRenderQueue": {
+              "Type": "AWS::Lambda::EventSourceMapping",
+              "DependsOn": [
+                "IamRoleLambdaExecution"
+              ],
+              "Properties": {
+                "BatchSize": 10,
+                "EventSourceArn": {
+                  "Fn::GetAtt": [
+                    "NovaSceneRenderQueue",
+                    "Arn"
+                  ]
+                },
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "WorkerLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Enabled": true
+              }
+            },
+            "HttpApi": {
+              "Type": "AWS::ApiGatewayV2::Api",
+              "Properties": {
+                "Name": "dev-nova-scene-backend",
+                "ProtocolType": "HTTP"
+              }
+            },
+            "HttpApiStage": {
+              "Type": "AWS::ApiGatewayV2::Stage",
+              "Properties": {
+                "ApiId": {
+                  "Ref": "HttpApi"
+                },
+                "StageName": "$default",
+                "AutoDeploy": true,
+                "DefaultRouteSettings": {
+                  "DetailedMetricsEnabled": false
+                }
+              }
+            },
+            "ApiLambdaPermissionHttpApi": {
+              "Type": "AWS::Lambda::Permission",
+              "Properties": {
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "ApiLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "apigateway.amazonaws.com",
+                "SourceArn": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":execute-api:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":",
+                      {
+                        "Ref": "HttpApi"
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              }
+            },
+            "HttpApiIntegrationApi": {
+              "Type": "AWS::ApiGatewayV2::Integration",
+              "Properties": {
+                "ApiId": {
+                  "Ref": "HttpApi"
+                },
+                "IntegrationType": "AWS_PROXY",
+                "IntegrationUri": {
+                  "Fn::GetAtt": [
+                    "ApiLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "PayloadFormatVersion": "2.0",
+                "TimeoutInMillis": 30000
+              }
+            },
+            "HttpApiRouteDefault": {
+              "Type": "AWS::ApiGatewayV2::Route",
+              "Properties": {
+                "ApiId": {
+                  "Ref": "HttpApi"
+                },
+                "RouteKey": "$default",
+                "Target": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      "integrations",
+                      {
+                        "Ref": "HttpApiIntegrationApi"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "DependsOn": "HttpApiIntegrationApi"
+            },
+            "NovaSceneRenderQueue": {
+              "Type": "AWS::SQS::Queue",
+              "Properties": {
+                "QueueName": "NovaSceneRenderQueue-dev",
+                "VisibilityTimeout": 900
+              }
+            }
+          },
+          "Outputs": {
+            "ServerlessDeploymentBucketName": {
+              "Value": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+              "Export": {
+                "Name": "sls-nova-scene-backend-dev-ServerlessDeploymentBucketName"
+              }
+            },
+            "ApiLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo"
+              },
+              "Export": {
+                "Name": "sls-nova-scene-backend-dev-ApiLambdaFunctionQualifiedArn"
+              }
+            },
+            "WorkerLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE"
+              },
+              "Export": {
+                "Name": "sls-nova-scene-backend-dev-WorkerLambdaFunctionQualifiedArn"
+              }
+            },
+            "HttpApiId": {
+              "Description": "Id of the HTTP API",
+              "Value": {
+                "Ref": "HttpApi"
+              },
+              "Export": {
+                "Name": "sls-nova-scene-backend-dev-HttpApiId"
+              }
+            },
+            "HttpApiUrl": {
+              "Description": "URL of the HTTP API",
+              "Value": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "https://",
+                    {
+                      "Ref": "HttpApi"
+                    },
+                    ".execute-api.",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ".",
+                    {
+                      "Ref": "AWS::URLSuffix"
+                    }
+                  ]
+                ]
+              },
+              "Export": {
+                "Name": "sls-nova-scene-backend-dev-HttpApiUrl"
+              }
+            }
+          }
+        },
+        "vpc": {}
+      },
+      "plugins": [
+        "serverless-offline"
+      ],
+      "functions": {
+        "api": {
+          "handler": "src/lambda.handler",
+          "events": [
+            {
+              "httpApi": "*",
+              "resolvedMethod": "ANY"
+            }
+          ],
+          "name": "nova-scene-backend-dev-api",
+          "environment": {
+            "NODE_OPTIONS": "--enable-source-maps"
+          },
+          "package": {},
+          "memory": 512,
+          "timeout": 6,
+          "runtime": "nodejs18.x",
+          "vpc": {},
+          "versionLogicalId": "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo"
+        },
+        "worker": {
+          "handler": "src/sqsWorker.handler",
+          "timeout": 900,
+          "events": [
+            {
+              "sqs": {
+                "arn": {
+                  "Fn::GetAtt": [
+                    "NovaSceneRenderQueue",
+                    "Arn"
+                  ]
+                }
+              }
+            }
+          ],
+          "name": "nova-scene-backend-dev-worker",
+          "environment": {
+            "NODE_OPTIONS": "--enable-source-maps"
+          },
+          "package": {},
+          "memory": 512,
+          "runtime": "nodejs18.x",
+          "vpc": {},
+          "versionLogicalId": "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE"
+        }
+      },
+      "resources": {
+        "Resources": {
+          "NovaSceneRenderQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "NovaSceneRenderQueue-dev",
+              "VisibilityTimeout": 900
+            }
+          }
+        },
+        "Outputs": {}
+      }
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "nodejs18.x",
+      "region": "ap-south-1",
+      "memorySize": 512,
+      "environment": {
+        "SQS_QUEUE_URL": {
+          "Ref": "NovaSceneRenderQueue"
+        },
+        "S3_DB_BUCKET": "novascene-db-1780577875",
+        "R2_ENDPOINT_URL": "",
+        "R2_ACCESS_KEY_ID": "<REDACTED>",
+        "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+        "R2_BUCKET_NAME": "",
+        "R2_CDN_URL": "",
+        "RUNPOD_API_KEY": "<REDACTED>",
+        "RUNPOD_FLUX_ENDPOINT_ID": "",
+        "RUNPOD_WAN_ENDPOINT_ID": "",
+        "RUNPOD_LTX_ENDPOINT_ID": "",
+        "RUNPOD_AUDIO_ENDPOINT_ID": "",
+        "RUNPOD_LORA_ENDPOINT_ID": "",
+        "OPENAI_API_KEY": "<REDACTED>"
+      },
+      "iam": {
+        "role": {
+          "statements": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sqs:SendMessage"
+              ],
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "NovaSceneRenderQueue",
+                    "Arn"
+                  ]
+                }
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+              ],
+              "Resource": "arn:aws:s3:::novascene-db-1780577875/*"
+            }
+          ]
+        }
+      },
+      "stage": "dev",
+      "versionFunctions": true,
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "ApiLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/nova-scene-backend-dev-api"
+            }
+          },
+          "WorkerLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/nova-scene-backend-dev-worker"
+            }
+          },
+          "IamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "nova-scene-backend",
+                        "dev",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup",
+                          "logs:TagResource"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/nova-scene-backend-dev*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/nova-scene-backend-dev*:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:SendMessage"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "NovaSceneRenderQueue",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "s3:GetObject",
+                          "s3:PutObject"
+                        ],
+                        "Resource": "arn:aws:s3:::novascene-db-1780577875/*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:ReceiveMessage",
+                          "sqs:DeleteMessage",
+                          "sqs:GetQueueAttributes"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "NovaSceneRenderQueue",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "nova-scene-backend",
+                    "dev",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              }
+            }
+          },
+          "ApiLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+                "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+              },
+              "Handler": "src/lambda.handler",
+              "Runtime": "nodejs18.x",
+              "FunctionName": "nova-scene-backend-dev-api",
+              "MemorySize": 512,
+              "Timeout": 6,
+              "Environment": {
+                "Variables": {
+                  "SQS_QUEUE_URL": {
+                    "Ref": "NovaSceneRenderQueue"
+                  },
+                  "S3_DB_BUCKET": "novascene-db-1780577875",
+                  "R2_ENDPOINT_URL": "",
+                  "R2_ACCESS_KEY_ID": "<REDACTED>",
+                  "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+                  "R2_BUCKET_NAME": "",
+                  "R2_CDN_URL": "",
+                  "RUNPOD_API_KEY": "<REDACTED>",
+                  "RUNPOD_FLUX_ENDPOINT_ID": "",
+                  "RUNPOD_WAN_ENDPOINT_ID": "",
+                  "RUNPOD_LTX_ENDPOINT_ID": "",
+                  "RUNPOD_AUDIO_ENDPOINT_ID": "",
+                  "RUNPOD_LORA_ENDPOINT_ID": "",
+                  "OPENAI_API_KEY": "<REDACTED>",
+                  "NODE_OPTIONS": "--enable-source-maps"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "ApiLogGroup"
+            ]
+          },
+          "WorkerLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+                "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+              },
+              "Handler": "src/sqsWorker.handler",
+              "Runtime": "nodejs18.x",
+              "FunctionName": "nova-scene-backend-dev-worker",
+              "MemorySize": 512,
+              "Timeout": 900,
+              "Environment": {
+                "Variables": {
+                  "SQS_QUEUE_URL": {
+                    "Ref": "NovaSceneRenderQueue"
+                  },
+                  "S3_DB_BUCKET": "novascene-db-1780577875",
+                  "R2_ENDPOINT_URL": "",
+                  "R2_ACCESS_KEY_ID": "<REDACTED>",
+                  "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+                  "R2_BUCKET_NAME": "",
+                  "R2_CDN_URL": "",
+                  "RUNPOD_API_KEY": "<REDACTED>",
+                  "RUNPOD_FLUX_ENDPOINT_ID": "",
+                  "RUNPOD_WAN_ENDPOINT_ID": "",
+                  "RUNPOD_LTX_ENDPOINT_ID": "",
+                  "RUNPOD_AUDIO_ENDPOINT_ID": "",
+                  "RUNPOD_LORA_ENDPOINT_ID": "",
+                  "OPENAI_API_KEY": "<REDACTED>",
+                  "NODE_OPTIONS": "--enable-source-maps"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "WorkerLogGroup"
+            ]
+          },
+          "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "ApiLambdaFunction"
+              },
+              "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+            }
+          },
+          "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "WorkerLambdaFunction"
+              },
+              "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+            }
+          },
+          "WorkerEventSourceMappingSQSNovaSceneRenderQueue": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "DependsOn": [
+              "IamRoleLambdaExecution"
+            ],
+            "Properties": {
+              "BatchSize": 10,
+              "EventSourceArn": {
+                "Fn::GetAtt": [
+                  "NovaSceneRenderQueue",
+                  "Arn"
+                ]
+              },
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "WorkerLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Enabled": true
+            }
+          },
+          "HttpApi": {
+            "Type": "AWS::ApiGatewayV2::Api",
+            "Properties": {
+              "Name": "dev-nova-scene-backend",
+              "ProtocolType": "HTTP"
+            }
+          },
+          "HttpApiStage": {
+            "Type": "AWS::ApiGatewayV2::Stage",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "StageName": "$default",
+              "AutoDeploy": true,
+              "DefaultRouteSettings": {
+                "DetailedMetricsEnabled": false
+              }
+            }
+          },
+          "ApiLambdaPermissionHttpApi": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "ApiLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "apigateway.amazonaws.com",
+              "SourceArn": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":execute-api:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "HttpApi"
+                    },
+                    "/*"
+                  ]
+                ]
+              }
+            }
+          },
+          "HttpApiIntegrationApi": {
+            "Type": "AWS::ApiGatewayV2::Integration",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "IntegrationType": "AWS_PROXY",
+              "IntegrationUri": {
+                "Fn::GetAtt": [
+                  "ApiLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "PayloadFormatVersion": "2.0",
+              "TimeoutInMillis": 30000
+            }
+          },
+          "HttpApiRouteDefault": {
+            "Type": "AWS::ApiGatewayV2::Route",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "RouteKey": "$default",
+              "Target": {
+                "Fn::Join": [
+                  "/",
+                  [
+                    "integrations",
+                    {
+                      "Ref": "HttpApiIntegrationApi"
+                    }
+                  ]
+                ]
+              }
+            },
+            "DependsOn": "HttpApiIntegrationApi"
+          },
+          "NovaSceneRenderQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "NovaSceneRenderQueue-dev",
+              "VisibilityTimeout": 900
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+            "Export": {
+              "Name": "sls-nova-scene-backend-dev-ServerlessDeploymentBucketName"
+            }
+          },
+          "ApiLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo"
+            },
+            "Export": {
+              "Name": "sls-nova-scene-backend-dev-ApiLambdaFunctionQualifiedArn"
+            }
+          },
+          "WorkerLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE"
+            },
+            "Export": {
+              "Name": "sls-nova-scene-backend-dev-WorkerLambdaFunctionQualifiedArn"
+            }
+          },
+          "HttpApiId": {
+            "Description": "Id of the HTTP API",
+            "Value": {
+              "Ref": "HttpApi"
+            },
+            "Export": {
+              "Name": "sls-nova-scene-backend-dev-HttpApiId"
+            }
+          },
+          "HttpApiUrl": {
+            "Description": "URL of the HTTP API",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "HttpApi"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  }
+                ]
+              ]
+            },
+            "Export": {
+              "Name": "sls-nova-scene-backend-dev-HttpApiUrl"
+            }
+          }
+        }
+      },
+      "vpc": {}
+    },
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": false,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "serviceRawFile": "service: nova-scene-backend\n\nprovider:\n  name: aws\n  runtime: nodejs18.x\n  region: ap-south-1\n  memorySize: 512\n  environment:\n    SQS_QUEUE_URL: { Ref: NovaSceneRenderQueue }\n    S3_DB_BUCKET: \"novascene-db-1780577875\"\n    R2_ENDPOINT_URL: ${env:R2_ENDPOINT_URL, ''}\n    R2_ACCESS_KEY_ID: ${env:R2_ACCESS_KEY_ID, ''}\n    R2_SECRET_ACCESS_KEY: ${env:R2_SECRET_ACCESS_KEY, ''}\n    R2_BUCKET_NAME: ${env:R2_BUCKET_NAME, ''}\n    R2_CDN_URL: ${env:R2_CDN_URL, ''}\n    RUNPOD_API_KEY: ${env:RUNPOD_API_KEY, ''}\n    RUNPOD_FLUX_ENDPOINT_ID: ${env:RUNPOD_FLUX_ENDPOINT_ID, ''}\n    RUNPOD_WAN_ENDPOINT_ID: ${env:RUNPOD_WAN_ENDPOINT_ID, ''}\n    RUNPOD_LTX_ENDPOINT_ID: ${env:RUNPOD_LTX_ENDPOINT_ID, ''}\n    RUNPOD_AUDIO_ENDPOINT_ID: ${env:RUNPOD_AUDIO_ENDPOINT_ID, ''}\n    RUNPOD_LORA_ENDPOINT_ID: ${env:RUNPOD_LORA_ENDPOINT_ID, ''}\n    OPENAI_API_KEY: ${env:OPENAI_API_KEY, ''}\n  iam:\n    role:\n      statements:\n        - Effect: \"Allow\"\n          Action:\n            - \"sqs:SendMessage\"\n          Resource:\n            - Fn::GetAtt: [ NovaSceneRenderQueue, Arn ]\n        - Effect: \"Allow\"\n          Action:\n            - \"s3:GetObject\"\n            - \"s3:PutObject\"\n          Resource:\n            - \"arn:aws:s3:::novascene-db-1780577875/*\"\n\nplugins:\n  - serverless-offline\n\nfunctions:\n  api:\n    handler: src/lambda.handler\n    events:\n      - httpApi: '*'\n  \n  worker:\n    handler: src/sqsWorker.handler\n    timeout: 900 # 15 minutes max\n    events:\n      - sqs:\n          arn:\n            Fn::GetAtt:\n              - NovaSceneRenderQueue\n              - Arn\n\nresources:\n  Resources:\n    NovaSceneRenderQueue:\n      Type: \"AWS::SQS::Queue\"\n      Properties:\n        QueueName: \"NovaSceneRenderQueue-${sls:stage}\"\n        VisibilityTimeout: 900 # 15 minutes, must match or exceed lambda timeout\n",
+    "command": [
+      "deploy"
+    ],
+    "options": {},
+    "orgId": "de792b5e-0f5d-472f-83ad-7ee1deff3ba5",
+    "orgName": "rishikantku",
+    "userId": "lMdbYB5G5JXs23J39g",
+    "userName": "rishikantku",
+    "serviceProviderAwsAccountId": "756838402651",
+    "serviceProviderAwsCfStackName": "nova-scene-backend-dev",
+    "serviceProviderAwsCfStackId": "arn:aws:cloudformation:ap-south-1:756838402651:stack/nova-scene-backend-dev/9b7c8bd0-6010-11f1-af37-0a57af45debb",
+    "serviceProviderAwsCfStackCreated": "2026-06-04T12:26:27.042Z",
+    "serviceProviderAwsCfStackUpdated": null,
+    "serviceProviderAwsCfStackStatus": "CREATE_COMPLETE",
+    "serviceProviderAwsCfStackOutputs": [
+      {
+        "OutputKey": "WorkerLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:ap-south-1:756838402651:function:nova-scene-backend-dev-worker:1",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-nova-scene-backend-dev-WorkerLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "ApiLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:ap-south-1:756838402651:function:nova-scene-backend-dev-api:1",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-nova-scene-backend-dev-ApiLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "HttpApiId",
+        "OutputValue": "esudvxmq41",
+        "Description": "Id of the HTTP API",
+        "ExportName": "sls-nova-scene-backend-dev-HttpApiId"
+      },
+      {
+        "OutputKey": "ServerlessDeploymentBucketName",
+        "OutputValue": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+        "ExportName": "sls-nova-scene-backend-dev-ServerlessDeploymentBucketName"
+      },
+      {
+        "OutputKey": "HttpApiUrl",
+        "OutputValue": "https://esudvxmq41.execute-api.ap-south-1.amazonaws.com",
+        "Description": "URL of the HTTP API",
+        "ExportName": "sls-nova-scene-backend-dev-HttpApiUrl"
+      }
+    ],
+    "compiledCloudFormationTemplate": {
+      "AWSTemplateFormatVersion": "2010-09-09",
+      "Description": "The AWS CloudFormation template for this Serverless application",
+      "Resources": {
+        "ApiLogGroup": {
+          "Type": "AWS::Logs::LogGroup",
+          "Properties": {
+            "LogGroupName": "/aws/lambda/nova-scene-backend-dev-api"
+          }
+        },
+        "WorkerLogGroup": {
+          "Type": "AWS::Logs::LogGroup",
+          "Properties": {
+            "LogGroupName": "/aws/lambda/nova-scene-backend-dev-worker"
+          }
+        },
+        "IamRoleLambdaExecution": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": [
+                      "lambda.amazonaws.com"
+                    ]
+                  },
+                  "Action": [
+                    "sts:AssumeRole"
+                  ]
+                }
+              ]
+            },
+            "Policies": [
+              {
+                "PolicyName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "nova-scene-backend",
+                      "dev",
+                      "lambda"
+                    ]
+                  ]
+                },
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "logs:CreateLogStream",
+                        "logs:CreateLogGroup",
+                        "logs:TagResource"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/nova-scene-backend-dev*:*"
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "logs:PutLogEvents"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/nova-scene-backend-dev*:*:*"
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "sqs:SendMessage"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::GetAtt": [
+                            "NovaSceneRenderQueue",
+                            "Arn"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "s3:GetObject",
+                        "s3:PutObject"
+                      ],
+                      "Resource": "arn:aws:s3:::novascene-db-1780577875/*"
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "sqs:ReceiveMessage",
+                        "sqs:DeleteMessage",
+                        "sqs:GetQueueAttributes"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::GetAtt": [
+                            "NovaSceneRenderQueue",
+                            "Arn"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "Path": "/",
+            "RoleName": {
+              "Fn::Join": [
+                "-",
+                [
+                  "nova-scene-backend",
+                  "dev",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "lambdaRole"
+                ]
+              ]
+            }
+          }
+        },
+        "ApiLambdaFunction": {
+          "Type": "AWS::Lambda::Function",
+          "Properties": {
+            "Code": {
+              "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+              "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+            },
+            "Handler": "src/lambda.handler",
+            "Runtime": "nodejs18.x",
+            "FunctionName": "nova-scene-backend-dev-api",
+            "MemorySize": 512,
+            "Timeout": 6,
+            "Environment": {
+              "Variables": {
+                "SQS_QUEUE_URL": {
+                  "Ref": "NovaSceneRenderQueue"
+                },
+                "S3_DB_BUCKET": "novascene-db-1780577875",
+                "R2_ENDPOINT_URL": "",
+                "R2_ACCESS_KEY_ID": "<REDACTED>",
+                "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+                "R2_BUCKET_NAME": "",
+                "R2_CDN_URL": "",
+                "RUNPOD_API_KEY": "<REDACTED>",
+                "RUNPOD_FLUX_ENDPOINT_ID": "",
+                "RUNPOD_WAN_ENDPOINT_ID": "",
+                "RUNPOD_LTX_ENDPOINT_ID": "",
+                "RUNPOD_AUDIO_ENDPOINT_ID": "",
+                "RUNPOD_LORA_ENDPOINT_ID": "",
+                "OPENAI_API_KEY": "<REDACTED>",
+                "NODE_OPTIONS": "--enable-source-maps"
+              }
+            },
+            "Role": {
+              "Fn::GetAtt": [
+                "IamRoleLambdaExecution",
+                "Arn"
+              ]
+            }
+          },
+          "DependsOn": [
+            "ApiLogGroup"
+          ]
+        },
+        "WorkerLambdaFunction": {
+          "Type": "AWS::Lambda::Function",
+          "Properties": {
+            "Code": {
+              "S3Bucket": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+              "S3Key": "serverless/nova-scene-backend/dev/1780577947990-2026-06-04T12:59:07.990Z/nova-scene-backend.zip"
+            },
+            "Handler": "src/sqsWorker.handler",
+            "Runtime": "nodejs18.x",
+            "FunctionName": "nova-scene-backend-dev-worker",
+            "MemorySize": 512,
+            "Timeout": 900,
+            "Environment": {
+              "Variables": {
+                "SQS_QUEUE_URL": {
+                  "Ref": "NovaSceneRenderQueue"
+                },
+                "S3_DB_BUCKET": "novascene-db-1780577875",
+                "R2_ENDPOINT_URL": "",
+                "R2_ACCESS_KEY_ID": "<REDACTED>",
+                "R2_SECRET_ACCESS_KEY": "<REDACTED>",
+                "R2_BUCKET_NAME": "",
+                "R2_CDN_URL": "",
+                "RUNPOD_API_KEY": "<REDACTED>",
+                "RUNPOD_FLUX_ENDPOINT_ID": "",
+                "RUNPOD_WAN_ENDPOINT_ID": "",
+                "RUNPOD_LTX_ENDPOINT_ID": "",
+                "RUNPOD_AUDIO_ENDPOINT_ID": "",
+                "RUNPOD_LORA_ENDPOINT_ID": "",
+                "OPENAI_API_KEY": "<REDACTED>",
+                "NODE_OPTIONS": "--enable-source-maps"
+              }
+            },
+            "Role": {
+              "Fn::GetAtt": [
+                "IamRoleLambdaExecution",
+                "Arn"
+              ]
+            }
+          },
+          "DependsOn": [
+            "WorkerLogGroup"
+          ]
+        },
+        "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo": {
+          "Type": "AWS::Lambda::Version",
+          "DeletionPolicy": "Retain",
+          "Properties": {
+            "FunctionName": {
+              "Ref": "ApiLambdaFunction"
+            },
+            "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+          }
+        },
+        "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE": {
+          "Type": "AWS::Lambda::Version",
+          "DeletionPolicy": "Retain",
+          "Properties": {
+            "FunctionName": {
+              "Ref": "WorkerLambdaFunction"
+            },
+            "CodeSha256": "ETgozqdlZSx1kCAVNaSybP1UArNaHOJpL3r8542idlQ="
+          }
+        },
+        "WorkerEventSourceMappingSQSNovaSceneRenderQueue": {
+          "Type": "AWS::Lambda::EventSourceMapping",
+          "DependsOn": [
+            "IamRoleLambdaExecution"
+          ],
+          "Properties": {
+            "BatchSize": 10,
+            "EventSourceArn": {
+              "Fn::GetAtt": [
+                "NovaSceneRenderQueue",
+                "Arn"
+              ]
+            },
+            "FunctionName": {
+              "Fn::GetAtt": [
+                "WorkerLambdaFunction",
+                "Arn"
+              ]
+            },
+            "Enabled": true
+          }
+        },
+        "HttpApi": {
+          "Type": "AWS::ApiGatewayV2::Api",
+          "Properties": {
+            "Name": "dev-nova-scene-backend",
+            "ProtocolType": "HTTP"
+          }
+        },
+        "HttpApiStage": {
+          "Type": "AWS::ApiGatewayV2::Stage",
+          "Properties": {
+            "ApiId": {
+              "Ref": "HttpApi"
+            },
+            "StageName": "$default",
+            "AutoDeploy": true,
+            "DefaultRouteSettings": {
+              "DetailedMetricsEnabled": false
+            }
+          }
+        },
+        "ApiLambdaPermissionHttpApi": {
+          "Type": "AWS::Lambda::Permission",
+          "Properties": {
+            "FunctionName": {
+              "Fn::GetAtt": [
+                "ApiLambdaFunction",
+                "Arn"
+              ]
+            },
+            "Action": "lambda:InvokeFunction",
+            "Principal": "apigateway.amazonaws.com",
+            "SourceArn": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition"
+                  },
+                  ":execute-api:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":",
+                  {
+                    "Ref": "HttpApi"
+                  },
+                  "/*"
+                ]
+              ]
+            }
+          }
+        },
+        "HttpApiIntegrationApi": {
+          "Type": "AWS::ApiGatewayV2::Integration",
+          "Properties": {
+            "ApiId": {
+              "Ref": "HttpApi"
+            },
+            "IntegrationType": "AWS_PROXY",
+            "IntegrationUri": {
+              "Fn::GetAtt": [
+                "ApiLambdaFunction",
+                "Arn"
+              ]
+            },
+            "PayloadFormatVersion": "2.0",
+            "TimeoutInMillis": 30000
+          }
+        },
+        "HttpApiRouteDefault": {
+          "Type": "AWS::ApiGatewayV2::Route",
+          "Properties": {
+            "ApiId": {
+              "Ref": "HttpApi"
+            },
+            "RouteKey": "$default",
+            "Target": {
+              "Fn::Join": [
+                "/",
+                [
+                  "integrations",
+                  {
+                    "Ref": "HttpApiIntegrationApi"
+                  }
+                ]
+              ]
+            }
+          },
+          "DependsOn": "HttpApiIntegrationApi"
+        },
+        "NovaSceneRenderQueue": {
+          "Type": "AWS::SQS::Queue",
+          "Properties": {
+            "QueueName": "NovaSceneRenderQueue-dev",
+            "VisibilityTimeout": 900
+          }
+        }
+      },
+      "Outputs": {
+        "ServerlessDeploymentBucketName": {
+          "Value": "serverless-framework-deployments-ap-south-1-f6eba18c-98ad",
+          "Export": {
+            "Name": "sls-nova-scene-backend-dev-ServerlessDeploymentBucketName"
+          }
+        },
+        "ApiLambdaFunctionQualifiedArn": {
+          "Description": "Current Lambda function version",
+          "Value": {
+            "Ref": "ApiLambdaVersionTYp9LNJQwWEo0FKO6VWf0QpwcXJrv0I5m6apwDTJgQo"
+          },
+          "Export": {
+            "Name": "sls-nova-scene-backend-dev-ApiLambdaFunctionQualifiedArn"
+          }
+        },
+        "WorkerLambdaFunctionQualifiedArn": {
+          "Description": "Current Lambda function version",
+          "Value": {
+            "Ref": "WorkerLambdaVersionrpMsLe3JmawiBMsrFBd5TjwWFyq2zpun8lrQ3fPQE"
+          },
+          "Export": {
+            "Name": "sls-nova-scene-backend-dev-WorkerLambdaFunctionQualifiedArn"
+          }
+        },
+        "HttpApiId": {
+          "Description": "Id of the HTTP API",
+          "Value": {
+            "Ref": "HttpApi"
+          },
+          "Export": {
+            "Name": "sls-nova-scene-backend-dev-HttpApiId"
+          }
+        },
+        "HttpApiUrl": {
+          "Description": "URL of the HTTP API",
+          "Value": {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Ref": "HttpApi"
+                },
+                ".execute-api.",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ".",
+                {
+                  "Ref": "AWS::URLSuffix"
+                }
+              ]
+            ]
+          },
+          "Export": {
+            "Name": "sls-nova-scene-backend-dev-HttpApiUrl"
+          }
+        }
+      }
+    }
+  }
+}

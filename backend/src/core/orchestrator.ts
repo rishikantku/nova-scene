@@ -7,6 +7,22 @@ import crypto from 'crypto';
 
 const execPromise = util.promisify(exec);
 
+async function asyncMapConcurrent<T, R>(items: T[], concurrency: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let currentIndex = 0;
+
+  const worker = async () => {
+    while (currentIndex < items.length) {
+      const index = currentIndex++;
+      results[index] = await mapper(items[index], index);
+    }
+  };
+
+  const workers = Array(Math.min(concurrency, items.length)).fill(0).map(worker);
+  await Promise.all(workers);
+  return results;
+}
+
 export interface SceneDefinition {
   sceneIndex: number;
   duration: number;
@@ -286,8 +302,10 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
     includeAudio: boolean = false,
     audioPrompt: string = "",
     videoEngine: string = "wan",
+    existingAudioUrl?: string,
+    existingVoiceoverUrl?: string,
     onProgress?: (update: OrchestratorProgressUpdate) => void
-  ): Promise<string> {
+  ): Promise<{ finalVideoUrl: string; generatedAudioUrl?: string; generatedVoiceoverUrl?: string }> {
     console.log(`[Orchestrator] Starting render phase for job: ${jobId}`);
     
     try {
@@ -328,10 +346,19 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
         }
       };
 
-      // 3. Render all scene segments sequentially to prevent GPU OOM
-      const videoUrls: string[] = [];
-      for (const scene of scenesList) {
+      // 3. Render all scene segments in parallel (Max 3 concurrent to balance speed and stability)
+      const CONCURRENCY_LIMIT = 3;
+      console.log(`[Orchestrator] Dispatching ${scenesList.length} scenes with a concurrency limit of ${CONCURRENCY_LIMIT}...`);
+      
+      const videoUrls = await asyncMapConcurrent(scenesList, CONCURRENCY_LIMIT, async (scene) => {
         let imageUrl = scene.imageUrl;
+        let videoUrl = scene.videoUrl;
+
+        if (videoUrl) {
+          console.log(`[Orchestrator] Scene ${scene.index} already has a generated video, skipping generation.`);
+          updateSceneAndNotify(scene.index, { status: 'completed' });
+          return videoUrl;
+        }
         
         if (!imageUrl) {
           updateSceneAndNotify(scene.index, { status: 'generating_image' });
@@ -346,7 +373,7 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
           imageUrl
         });
 
-        // Generate Motion Clip sequentially
+        // Generate Motion Clip
         const options: any = {};
         if (scene.loraSafetensorsUrl) {
            options.lora_safetensors_url = scene.loraSafetensorsUrl;
@@ -359,29 +386,32 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
         }
         
         console.log(`[Orchestrator] Rendering video for scene ${scene.index}...`);
-        const videoUrl = await this.provider.generateMotion(imageUrl, finalPrompt, scene.duration, videoEngine, options);
+        videoUrl = await this.provider.generateMotion(imageUrl, finalPrompt, scene.duration, videoEngine, options);
+        
         updateSceneAndNotify(scene.index, {
           status: 'completed',
           videoUrl
         });
 
-        videoUrls.push(videoUrl);
-      }
+        return videoUrl;
+      });
 
       // Audio generation Promise (background music/SFX)
-      let audioPromise: Promise<string | undefined> = Promise.resolve(undefined);
-      if (includeAudio) {
+      let audioPromise: Promise<string | undefined> = Promise.resolve(existingAudioUrl);
+      if (includeAudio && !existingAudioUrl) {
         console.log(`[Orchestrator] Dispatching Audio Task for prompt: "${audioPrompt}"`);
         const totalDuration = scenesList.reduce((acc, s) => acc + s.duration, 0);
         audioPromise = this.provider.generateAudio(audioPrompt, totalDuration).catch((err) => {
           console.error(`[Orchestrator] Audio generation failed, continuing without audio:`, err.message);
           return undefined;
         });
+      } else if (existingAudioUrl) {
+        console.log(`[Orchestrator] Background audio already exists, skipping generation.`);
       }
 
       // Voiceover generation Promise (narration from LLM-generated narration text)
-      let voiceoverPromise: Promise<string | undefined> = Promise.resolve(undefined);
-      if (includeAudio) {
+      let voiceoverPromise: Promise<string | undefined> = Promise.resolve(existingVoiceoverUrl);
+      if (includeAudio && !existingVoiceoverUrl) {
         // Build narration script from scene narrations (not visual prompts)
         const narrationParts = scenesList
           .map(s => s.narration)
@@ -409,7 +439,9 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
       if (onProgress) {
         onProgress({ status: 'stitching', progress: 85 });
       }
-      const finalVideoUrl = await this.stitchScenes(videoUrls, generatedAudioUrl, generatedVoiceoverUrl);
+      
+      const validVideoUrls = videoUrls.filter((url): url is string => !!url);
+      const finalVideoUrl = await this.stitchScenes(validVideoUrls, generatedAudioUrl, generatedVoiceoverUrl);
 
       // 5. Completion
       const totalDuration = scenesList.reduce((acc, s) => acc + s.duration, 0);
@@ -427,7 +459,7 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
       }
 
       console.log(`[Orchestrator] Job ${jobId} execution completed successfully.`);
-      return finalVideoUrl;
+      return { finalVideoUrl, generatedAudioUrl, generatedVoiceoverUrl };
     } catch (err: any) {
       console.error(`[Orchestrator] Job ${jobId} execution failed:`, err.message);
       if (onProgress) {

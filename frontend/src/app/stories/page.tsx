@@ -22,7 +22,7 @@ export default function StoriesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/v1/stories")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories`)
       .then((res) => res.json())
       .then((data) => {
         setStories(data.stories || []);
@@ -39,7 +39,7 @@ export default function StoriesPage() {
     if (!confirm("Are you sure you want to delete this story?")) return;
     
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/stories/${storyId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${storyId}`, {
         method: 'DELETE'
       });
       if (res.ok) {

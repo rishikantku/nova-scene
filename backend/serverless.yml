@@ -1,0 +1,63 @@
+service: nova-scene-backend
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-south-1
+  memorySize: 512
+  environment:
+    SQS_QUEUE_URL: { Ref: NovaSceneRenderQueue }
+    S3_DB_BUCKET: "novascene-db-1780577875"
+    R2_ENDPOINT_URL: ${env:R2_ENDPOINT_URL, ''}
+    R2_ACCESS_KEY_ID: ${env:R2_ACCESS_KEY_ID, ''}
+    R2_SECRET_ACCESS_KEY: ${env:R2_SECRET_ACCESS_KEY, ''}
+    R2_BUCKET_NAME: ${env:R2_BUCKET_NAME, ''}
+    R2_CDN_URL: ${env:R2_CDN_URL, ''}
+    RUNPOD_API_KEY: ${env:RUNPOD_API_KEY, ''}
+    RUNPOD_FLUX_ENDPOINT_ID: ${env:RUNPOD_FLUX_ENDPOINT_ID, ''}
+    RUNPOD_WAN_ENDPOINT_ID: ${env:RUNPOD_WAN_ENDPOINT_ID, ''}
+    RUNPOD_LTX_ENDPOINT_ID: ${env:RUNPOD_LTX_ENDPOINT_ID, ''}
+    RUNPOD_AUDIO_ENDPOINT_ID: ${env:RUNPOD_AUDIO_ENDPOINT_ID, ''}
+    RUNPOD_LORA_ENDPOINT_ID: ${env:RUNPOD_LORA_ENDPOINT_ID, ''}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY, ''}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "sqs:SendMessage"
+          Resource:
+            - Fn::GetAtt: [ NovaSceneRenderQueue, Arn ]
+        - Effect: "Allow"
+          Action:
+            - "s3:GetObject"
+            - "s3:PutObject"
+          Resource:
+            - "arn:aws:s3:::novascene-db-1780577875/*"
+
+plugins:
+  - serverless-offline
+
+functions:
+  api:
+    handler: src/lambda.handler
+    events:
+      - httpApi: '*'
+  
+  worker:
+    handler: src/sqsWorker.handler
+    timeout: 900 # 15 minutes max
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - NovaSceneRenderQueue
+              - Arn
+
+resources:
+  Resources:
+    NovaSceneRenderQueue:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "NovaSceneRenderQueue-${sls:stage}"
+        VisibilityTimeout: 900 # 15 minutes, must match or exceed lambda timeout

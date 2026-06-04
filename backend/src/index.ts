@@ -13,8 +13,16 @@ dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' })); // Allow all origins so Vercel can connect
 app.use(express.json());
+
+app.use(async (req, res, next) => {
+  if (IS_SERVERLESS) {
+    await loadDb();
+  }
+  next();
+});
+
 app.use('/static', express.static(path.join(process.cwd(), 'static')));
 
 // In-memory mock database of jobs and scenes for local run
@@ -79,8 +87,14 @@ interface LoraMetadata {
 }
 
 import fs from 'fs';
+import { loadDbFromS3OrLocal, saveDbToS3OrLocal } from './s3db';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
-const DB_PATH = path.join(process.cwd(), 'db.json');
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-east-1' });
+
+// On Railway or EC2, they can map a persistent volume and set DB_PATH=/data/db.json
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'db.json');
+const IS_SERVERLESS = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 const MOCK_JOBS: Record<string, Job> = {};
 const MOCK_CHARACTERS: Record<string, Character> = {};
@@ -97,6 +111,8 @@ interface Story {
   status: 'draft' | 'generating_board' | 'board_ready' | 'generating_video' | 'completed' | 'failed';
   scenes: Scene[];
   finalVideoUrl?: string;
+  generatedAudioUrl?: string;
+  generatedVoiceoverUrl?: string;
   includeAudio?: boolean;
   audioPrompt?: string;
   createdAt: string;
@@ -104,31 +120,42 @@ interface Story {
 
 const MOCK_STORIES: Record<string, Story> = {};
 
-// Load database from disk on startup
-if (fs.existsSync(DB_PATH)) {
+// Load database from disk/S3
+export async function loadDb() {
   try {
-    const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+    const data = await loadDbFromS3OrLocal(DB_PATH);
     Object.assign(MOCK_JOBS, data.jobs || {});
     Object.assign(MOCK_CHARACTERS, data.characters || {});
     Object.assign(MOCK_STORIES, data.stories || {});
     Object.assign(MOCK_LORAS, data.loras || {});
-    console.log(`[DB] Loaded persistent mock database from ${DB_PATH}`);
+    if (!IS_SERVERLESS) console.log(`[DB] Loaded persistent mock database`);
   } catch (e) {
     console.error(`[DB] Error loading mock database`, e);
   }
 }
 
-// Save database to disk periodically
-function saveDb() {
+// Initial load for local dev
+if (!IS_SERVERLESS) {
+  loadDb();
+}
+
+// Save database to disk/S3
+export async function saveDb() {
   const data = {
     jobs: MOCK_JOBS,
     characters: MOCK_CHARACTERS,
     stories: MOCK_STORIES,
     loras: MOCK_LORAS
   };
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+  await saveDbToS3OrLocal(data, DB_PATH);
 }
-setInterval(saveDb, 2000);
+
+// Only poll saves in local dev. In serverless, we await saveDb() on requests.
+if (!IS_SERVERLESS) {
+  setInterval(() => {
+    saveDb().catch(console.error);
+  }, 2000);
+}
 
 // Active SSE client connections
 const sseClients: Record<string, Response[]> = {};
@@ -161,8 +188,8 @@ function notifyClients(jobId: string) {
   });
 }
 
-// Phase 1: Planning (LLM / Director)
-async function simulateJobPlanningPhase(jobId: string, prompt: string, duration: number = 15, visualStyle: string = "Cinematic") {
+// Phase 1: LLM Prompt Planning
+export async function simulateJobPlanningPhase(jobId: string, prompt: string, duration: number = 15, visualStyle: string = "Cinematic") {
   console.log(`[Pipeline] Beginning planning phase for job ${jobId}`);
   const job = MOCK_JOBS[jobId];
   if (!job) {
@@ -203,7 +230,7 @@ async function simulateJobPlanningPhase(jobId: string, prompt: string, duration:
 }
 
 // Phase 2: Heavy GPU Rendering
-async function simulateJobRenderPhase(jobId: string) {
+export async function simulateJobRenderPhase(jobId: string) {
   console.log(`[Pipeline] Beginning render phase for job ${jobId}`);
   const job = MOCK_JOBS[jobId];
   if (!job) {
@@ -244,13 +271,15 @@ async function simulateJobRenderPhase(jobId: string) {
       job.includeAudio, 
       job.audioPrompt, 
       job.videoEngine, 
-      (update) => {
+      undefined,
+      undefined,
+      (update: any) => {
         // Map progress updates back to the job record
         if (update.status) job.status = update.status as any; // Cast from orchestrator status
         if (update.progress !== undefined) job.progress = update.progress;
         if (update.scenes) {
           // Update scene statuses
-          update.scenes.forEach(us => {
+          update.scenes.forEach((us: any) => {
             const ls = job.scenes.find(s => s.index === us.index);
             if (ls) {
               ls.status = us.status;
@@ -276,7 +305,7 @@ async function simulateJobRenderPhase(jobId: string) {
   }
 }
 
-app.post('/api/v1/jobs', (req: Request, res: Response) => {
+app.post('/api/v1/jobs', async (req: Request, res: Response) => {
   const { prompt, duration_target, include_audio, audio_prompt, video_engine, visual_style } = req.body;
   const duration = duration_target || 15;
   const style = visual_style || "Cinematic";
@@ -305,7 +334,14 @@ app.post('/api/v1/jobs', (req: Request, res: Response) => {
 
   // Trigger non-blocking async process
   console.log(`[POST] Job ${jobId} initialized. Starting planning phase...`);
-  simulateJobPlanningPhase(jobId, prompt, duration, style);
+  if (IS_SERVERLESS && process.env.SQS_QUEUE_URL) {
+    await sqsClient.send(new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({ type: 'plan', jobId, prompt, duration, visualStyle: style })
+    }));
+  } else {
+    simulateJobPlanningPhase(jobId, prompt, duration, style);
+  }
 
   return res.status(202).json({
     job_id: jobId,
@@ -316,7 +352,7 @@ app.post('/api/v1/jobs', (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/v1/jobs/:job_id/approve', (req: Request, res: Response) => {
+app.post('/api/v1/jobs/:job_id/approve', async (req: Request, res: Response) => {
   const { job_id } = req.params;
   const job = MOCK_JOBS[job_id];
 
@@ -330,10 +366,16 @@ app.post('/api/v1/jobs/:job_id/approve', (req: Request, res: Response) => {
 
   console.log(`[POST] /api/v1/jobs/${job_id}/approve - User approved scenes. Starting render phase...`);
   
-  // Trigger rendering asynchronously
-  simulateJobRenderPhase(job_id);
+  if (IS_SERVERLESS && process.env.SQS_QUEUE_URL) {
+    await sqsClient.send(new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({ type: 'render', jobId: job_id })
+    }));
+  } else {
+    simulateJobRenderPhase(job_id);
+  }
 
-  return res.status(200).json({ success: true, message: 'Rendering started' });
+  return res.status(202).json({ success: true, message: 'Rendering started' });
 });
 
 app.put('/api/v1/jobs/:job_id/scenes/:scene_id', (req: Request, res: Response) => {
@@ -631,29 +673,15 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
       loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
     });
 
-    const datasetPrompts = [
-      `A close-up portrait of ${character.appearance}. Wearing: ${character.outfit}. Neutral expression, looking directly at the camera, plain white background, highly detailed.`,
-      `A side profile view of ${character.appearance}. Wearing: ${character.outfit}. Looking to the right, plain white background, highly detailed.`,
-      `A 3/4 angle view of ${character.appearance}. Wearing: ${character.outfit}. Looking slightly away, plain white background, highly detailed.`,
-      `A full body shot of ${character.appearance}. Wearing: ${character.outfit}. Standing naturally, plain white background, highly detailed.`
-    ];
-
-    console.log(`[LoRA] Starting dataset generation for character ${id} (${datasetPrompts.length} images)...`);
-    
-    // Generate images sequentially to avoid overloading the RunPod serverless queue or hitting rate limits
-    for (const p of datasetPrompts) {
-       const url = await provider.generateImage(p, '1:1');
-       loraMetadata.datasetUrls.push(url);
-       console.log(`[LoRA] Generated dataset image ${loraMetadata.datasetUrls.length}/${datasetPrompts.length}`);
+    if (!character.imageUrl) {
+      return res.status(400).json({ error: 'Character has no base image' });
     }
-    
+
+    console.log(`[LoRA] Using character sheet for dataset generation for character ${id}...`);
+    loraMetadata.datasetUrls = [character.imageUrl];
     loraMetadata.status = 'dataset_ready';
-    console.log(`[LoRA] Dataset generation complete! LoRA ${loraId} has ${loraMetadata.datasetUrls.length} reference images.`);
+    console.log(`[LoRA] Dataset generation complete! Sending character sheet to LoRA worker for cropping.`);
     
-    // LoRA training is disabled for now (costs $1-3 per character, 15-30 min).
-    // Character consistency is achieved via prompt engineering instead.
-    // Uncomment the block below to re-enable LoRA training when needed:
-    /*
     console.log(`[LoRA] Dispatching training job to LoRA endpoint...`);
     const safetensorsUrl = await provider.trainLora(loraId, loraMetadata.triggerToken, loraMetadata.datasetUrls);
     
@@ -664,7 +692,6 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
     } else {
       throw new Error("No URL returned from training");
     }
-    */
     
   } catch (err) {
     console.error(`[LoRA] Dataset generation failed:`, err);
@@ -737,7 +764,7 @@ app.post('/api/v1/characters/:character_id/regenerate', async (req: Request, res
 
     // Mark as generating and immediately return so frontend isn't blocked
     character.status = 'generating';
-    saveDb();
+    await saveDb();
     res.status(202).json(character);
 
     // Run the rest asynchronously
@@ -747,7 +774,7 @@ app.post('/api/v1/characters/:character_id/regenerate', async (req: Request, res
         const imageUrl = await provider.generateImage(prompt, aspectRatio);
         character.imageUrl = imageUrl;
         character.status = 'ready';
-        saveDb();
+        await saveDb();
         
         // If premium, trigger new dataset and LoRA
         if (isPremium && character.loraId) {
@@ -757,24 +784,16 @@ app.post('/api/v1/characters/:character_id/regenerate', async (req: Request, res
             loraMetadata.status = 'generating_dataset';
             loraMetadata.datasetUrls = [];
             loraMetadata.safetensorsUrl = undefined;
-            saveDb();
+            await saveDb();
             
             try {
-              const datasetPrompts = [
-                `A close-up portrait of ${character.appearance}. Wearing: ${character.outfit}. Neutral expression, looking directly at the camera, plain white background, highly detailed.`,
-                `A side profile full-body shot of ${character.appearance}. Wearing: ${character.outfit}. The character is fully visible from head to toe. Looking to the right, plain white background, highly detailed.`,
-                `A 3/4 angle full-body view of ${character.appearance}. Wearing: ${character.outfit}. The character is fully visible from head to toe. Looking slightly away, plain white background, highly detailed.`,
-                `A full-body shot of ${character.appearance}. Wearing: ${character.outfit}. The character is fully visible from head to toe. Standing naturally, plain white background, highly detailed.`
-              ];
-
-              console.log(`[LoRA] Regenerating ${datasetPrompts.length} dataset images for ${character.name}...`);
-              for (const p of datasetPrompts) {
-                const url = await provider.generateImage(p, '1:1');
-                loraMetadata.datasetUrls.push(url);
+              console.log(`[LoRA] Sending single character sheet for ${character.name} to worker for cropping...`);
+              if (character.imageUrl) {
+                loraMetadata.datasetUrls = [character.imageUrl];
               }
 
               loraMetadata.status = 'training';
-              saveDb();
+              await saveDb();
               console.log(`[LoRA] Dispatching re-training job for ${character.name}...`);
               const safetensorsUrl = await provider.trainLora(character.loraId!, loraMetadata.triggerToken, loraMetadata.datasetUrls);
               
@@ -782,21 +801,21 @@ app.post('/api/v1/characters/:character_id/regenerate', async (req: Request, res
                 loraMetadata.safetensorsUrl = safetensorsUrl;
                 loraMetadata.status = 'completed';
                 console.log(`[LoRA] ✅ Re-training complete for ${character.name}!`);
-                saveDb();
+                await saveDb();
               } else {
                 throw new Error('No URL returned from training');
               }
             } catch (err: any) {
               console.error(`[LoRA] ❌ Pipeline failed for ${character.name}:`, err.message);
               loraMetadata.status = 'failed';
-              saveDb();
+              await saveDb();
             }
           }
         }
       } catch (err: any) {
         console.error(`[Characters] ❌ Async regenerate failed for ${character.name}:`, err);
         character.status = 'ready'; // fallback
-        saveDb();
+        await saveDb();
       }
     })();
   } catch (error: any) {
@@ -881,7 +900,7 @@ app.get('/api/v1/activity', (req: Request, res: Response) => {
 // Story Mode Endpoints
 // ---------------------------------------------------------------------------
 
-app.post('/api/v1/stories', (req: Request, res: Response) => {
+app.post('/api/v1/stories', async (req: Request, res: Response) => {
   const { title, genre, visualStyle, targetDuration, castIds, videoEngine, includeAudio, audioPrompt } = req.body;
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
@@ -904,7 +923,7 @@ app.post('/api/v1/stories', (req: Request, res: Response) => {
   };
 
   MOCK_STORIES[storyId] = newStory;
-  saveDb();
+  await saveDb();
   return res.status(201).json(newStory);
 });
 
@@ -1065,8 +1084,8 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
   const story = MOCK_STORIES[story_id];
   if (!story) return res.status(404).json({ error: 'Story not found' });
 
-  if (story.status !== 'board_ready') {
-    return res.status(400).json({ error: 'Storyboard is not ready' });
+  if (story.status !== 'board_ready' && story.status !== 'failed') {
+    return res.status(400).json({ error: 'Storyboard is not ready or has not failed' });
   }
 
   // Allow the UI to override scenes (for edited prompts) and audio prompt before rendering
@@ -1118,16 +1137,18 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
       }
     }
     
-    const finalVideoUrl = await orchestrator.executeJobRenderPhase(
+    const { finalVideoUrl, generatedAudioUrl, generatedVoiceoverUrl } = await orchestrator.executeJobRenderPhase(
       story.id,
       story.scenes,
       !!story.includeAudio,
       story.audioPrompt || "",
       story.videoEngine || 'wan',
-      (update) => {
+      story.generatedAudioUrl,
+      story.generatedVoiceoverUrl,
+      (update: any) => {
          // Could emit SSE for stories here, skipping for brevity
          if (update.scenes) {
-             update.scenes.forEach(us => {
+             update.scenes.forEach((us: any) => {
                const ls = story.scenes.find(s => s.index === us.index);
                if (ls) {
                  ls.status = us.status;
@@ -1138,16 +1159,10 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
       }
     );
 
-    const validVideoUrls = story.scenes.map(s => s.videoUrl).filter((url): url is string => !!url);
-    if (validVideoUrls.length > 0) {
-      console.log(`[Stories] Stitching ${validVideoUrls.length} videos together for story ${story.id}...`);
-      const finalStitchedUrl = await provider.stitchVideos(validVideoUrls, story.includeAudio, story.audioPrompt);
-      story.finalVideoUrl = finalStitchedUrl;
-      console.log(`[Stories] ✅ Stitching complete! Final video: ${finalStitchedUrl}`);
-    } else {
-      story.finalVideoUrl = finalVideoUrl;
-    }
-
+    story.finalVideoUrl = finalVideoUrl;
+    if (generatedAudioUrl) story.generatedAudioUrl = generatedAudioUrl;
+    if (generatedVoiceoverUrl) story.generatedVoiceoverUrl = generatedVoiceoverUrl;
+    
     story.status = 'completed';
     console.log(`[Stories] Story ${story.id} render completed! URL: ${story.finalVideoUrl}`);
   } catch (err) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { Film, Play, Loader2, Sparkles, CheckCircle2, Clock, Trash2 } from "lucide-react";
+import { Film, Play, Loader2, Sparkles, CheckCircle2, Clock, Trash2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 interface Scene {
@@ -36,7 +36,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     let interval: NodeJS.Timeout;
     const fetchStory = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/stories/${id}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}`);
         if (res.ok) {
           const data = await res.json();
           setStory(data);
@@ -62,7 +62,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     setIsRendering(true);
     try {
       if (!story) return;
-      await fetch(`http://localhost:8000/api/v1/stories/${id}/render`, { 
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}/render`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scenes: story.scenes, audioPrompt: story.audioPrompt })
@@ -71,7 +71,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
       // The initial polling interval was cleared because the status was 'board_ready'.
       // We must manually poll here until it completes.
       const renderInterval = setInterval(async () => {
-        const res = await fetch(`http://localhost:8000/api/v1/stories/${id}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}`);
         if (res.ok) {
           const data = await res.json();
           setStory(data);
@@ -92,7 +92,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
     if (!confirm("Are you sure you want to delete this scene?")) return;
     
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/stories/${id}/scenes/${sceneId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/stories/${id}/scenes/${sceneId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -153,7 +153,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
                  <div className="text-xs font-bold text-zinc-500">Scene {s.index + 1}</div>
                  {s.status === 'completed' ? (
                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                 ) : s.status === 'generating_motion' ? (
+                 ) : (s.status === 'generating_motion' || s.status === 'generating_image') ? (
                    <div className="w-5 h-5 rounded-full border-2 border-violet-500 border-t-transparent animate-spin"></div>
                  ) : (
                    <Clock className="w-5 h-5 text-zinc-600" />
@@ -250,18 +250,34 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
             <span className="text-violet-300 text-[10px] font-bold tracking-widest uppercase">Director's Review</span>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">{story.title}</h1>
-          <p className="text-sm text-zinc-400">Review your generated scenes and canonical character injections before rendering the final video.</p>
+          <p className="text-sm text-zinc-400">
+            {isRendering || story.status === 'generating_video' 
+              ? 'The final scenes are being generated and stitched. Please wait...' 
+              : 'Review your generated scenes and canonical character injections before rendering the final video.'}
+          </p>
         </div>
         
-        <button
-          onClick={handleRender}
-          disabled={isRendering}
-          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-white px-8 py-4 rounded-2xl text-sm font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 hover:scale-105 active:scale-95"
-        >
-          {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-white" />}
-          Render Masterpiece
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={handleRender}
+            disabled={isRendering || story.status === 'generating_video'}
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-white px-8 py-4 rounded-2xl text-sm font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 hover:scale-105 active:scale-95"
+          >
+            {isRendering || story.status === 'generating_video' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-white" />}
+            {isRendering || story.status === 'generating_video' ? 'Rendering Masterpiece...' : 'Render Masterpiece'}
+          </button>
+        </div>
       </header>
+
+      {story.status === 'failed' && (
+        <div className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-start gap-3">
+           <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+           <div>
+             <h3 className="text-red-400 font-bold text-sm">Previous Render Failed</h3>
+             <p className="text-red-400/80 text-xs mt-1">The rendering pipeline encountered an error. However, your successfully generated assets are safely stored. Click <b>Render Masterpiece</b> to automatically resume the process from where it left off.</p>
+           </div>
+        </div>
+      )}
 
       {story.includeAudio && (
         <div className="mb-8 p-6 bg-[#121118]/80 border border-fuchsia-500/20 rounded-2xl shadow-lg">

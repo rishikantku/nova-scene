@@ -28,7 +28,7 @@ export default function NewCharacter() {
     setIsUploading(true);
     try {
       // 1. Get presigned URL
-      const urlRes = await fetch(`http://localhost:8000/api/v1/upload-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`);
+      const urlRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/upload-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`);
       if (!urlRes.ok) throw new Error("Failed to get upload URL");
       const { uploadUrl, publicUrl } = await urlRes.json();
 
@@ -57,7 +57,7 @@ export default function NewCharacter() {
     
     setIsGenerating(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/characters", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000')}/api/v1/characters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)

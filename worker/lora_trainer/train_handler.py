@@ -7,6 +7,7 @@ import runpod
 import boto3
 import requests
 import certifi
+import cv2
 from botocore.config import Config
 
 # Cloudflare R2 Config
@@ -87,10 +88,36 @@ def handler(job):
             with open(file_path, 'wb') as f:
                 for chunk in res.iter_content(chunk_size=8192):
                     f.write(chunk)
-            # Create a caption file for each image
-            txt_path = os.path.join(concept_dir, f"{idx}.txt")
-            with open(txt_path, 'w') as f:
-                f.write(f"{trigger_token}, cinematic, highly detailed")
+            
+            # Post-process: Auto-crop character sheets
+            img = cv2.imread(file_path)
+            txt_path_orig = os.path.join(concept_dir, f"{idx}.txt")
+            
+            if img is not None:
+                h, w = img.shape[:2]
+                if w > h * 1.5:  # Wide image (character sheet)
+                    print(f"[Trainer] Image {idx} is a character sheet ({w}x{h}). Splitting into 3...")
+                    piece_w = w // 3
+                    for i in range(3):
+                        crop = img[:, i*piece_w:(i+1)*piece_w]
+                        crop_path = os.path.join(concept_dir, f"{idx}_{i}.{ext}")
+                        cv2.imwrite(crop_path, crop)
+                        
+                        # Create caption for each crop
+                        crop_txt_path = os.path.join(concept_dir, f"{idx}_{i}.txt")
+                        with open(crop_txt_path, 'w') as f:
+                            f.write(f"{trigger_token}, cinematic, highly detailed")
+                    
+                    # Clean up the original sheet
+                    os.remove(file_path)
+                else:
+                    # Regular image
+                    with open(txt_path_orig, 'w') as f:
+                        f.write(f"{trigger_token}, cinematic, highly detailed")
+            else:
+                # Fallback if cv2 fails to read
+                with open(txt_path_orig, 'w') as f:
+                    f.write(f"{trigger_token}, cinematic, highly detailed")
                 
         num_images = len([f for f in os.listdir(concept_dir) if f.endswith(('.jpg', '.png', '.jpeg'))])
         print(f"[Trainer] Dataset prepared: {num_images} images at {concept_dir}")
@@ -100,7 +127,7 @@ def handler(job):
         cmd = [
             "accelerate", "launch",
             "--num_cpu_threads_per_process=2",
-            "/workspace/kohya_ss/sdxl_train_network.py",
+            "/workspace/sd-scripts/sdxl_train_network.py",
             "--pretrained_model_name_or_path", "stabilityai/stable-diffusion-xl-base-1.0",
             "--train_data_dir", img_dir,
             "--output_dir", out_dir,
@@ -119,6 +146,7 @@ def handler(job):
             "--mixed_precision", "fp16",
             "--save_precision", "fp16",
             "--cache_latents",
+            "--gradient_checkpointing",
             "--optimizer_type", "AdamW8bit",
             "--max_data_loader_n_workers", "2",
             "--bucket_no_upscale",
