@@ -586,24 +586,15 @@ export async function simulateCharacterGeneration(characterId: string, enableLor
       await saveDb();
 
       try {
-        const datasetPrompts = [
-          `A close-up portrait of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. Neutral expression, looking directly at the camera, plain white background, highly detailed.`,
-          `A side profile full-body shot of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character is fully visible from head to toe. Looking to the right, plain white background, highly detailed.`,
-          `A 3/4 angle full-body view of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character is fully visible from head to toe. Looking slightly away, plain white background, highly detailed.`,
-          `A full-body shot of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character is fully visible from head to toe. Standing naturally, plain white background, highly detailed.`
-        ];
-
-        console.log(`[LoRA] Generating ${datasetPrompts.length} dataset images for ${newCharacter.name}...`);
-        for (const p of datasetPrompts) {
-          const url = await provider.generateImage(p, '1:1');
-          loraMetadata.datasetUrls.push(url);
-          console.log(`[LoRA] Dataset image ${loraMetadata.datasetUrls.length}/${datasetPrompts.length}`);
-        }
-
-        // Dispatch training
+        // Use the character sheet image that was already generated (16:9 with 3 angles).
+        // The train_handler auto-splits wide images into 3 crops (front/side/¾).
+        // No need to generate additional images — they'd be inconsistent with the sheet anyway.
+        loraMetadata.datasetUrls = [newCharacter.imageUrl!];
+        
+        // Dispatch training directly
         loraMetadata.status = 'training';
         await saveDb();
-        console.log(`[LoRA] Dispatching training job for ${newCharacter.name}...`);
+        console.log(`[LoRA] Dispatching training job for ${newCharacter.name} using character sheet...`);
         const safetensorsUrl = await provider.trainLora(loraId, loraMetadata.triggerToken, loraMetadata.datasetUrls);
         
         if (safetensorsUrl) {
