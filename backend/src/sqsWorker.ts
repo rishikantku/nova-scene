@@ -1,4 +1,4 @@
-import { loadDb, saveDb, simulateJobRenderPhase, simulateJobPlanningPhase, simulateCharacterGeneration } from './index';
+import { loadDb, saveDb, simulateJobRenderPhase, simulateJobPlanningPhase, simulateCharacterGeneration, executeLoraTraining } from './index';
 
 export const handler = async (event: any) => {
   // Load the database from S3
@@ -14,6 +14,8 @@ export const handler = async (event: any) => {
         await simulateJobRenderPhase(body.jobId);
       } else if (body.type === 'character' && body.characterId) {
         await simulateCharacterGeneration(body.characterId, body.enableLora, body.referenceImageUrl);
+      } else if (body.type === 'lora-train' && body.characterId && body.loraId) {
+        await executeLoraTraining(body.characterId, body.loraId);
       }
     } catch (e) {
       console.error(`[SQS Worker] Failed to process message:`, e);

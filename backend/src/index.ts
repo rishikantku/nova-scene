@@ -124,6 +124,11 @@ const MOCK_STORIES: Record<string, Story> = {};
 export async function loadDb() {
   try {
     const data = await loadDbFromS3OrLocal(DB_PATH);
+    // Clear existing keys then replace to avoid stale data persisting across Lambda invocations
+    for (const key of Object.keys(MOCK_JOBS)) delete MOCK_JOBS[key];
+    for (const key of Object.keys(MOCK_CHARACTERS)) delete MOCK_CHARACTERS[key];
+    for (const key of Object.keys(MOCK_STORIES)) delete MOCK_STORIES[key];
+    for (const key of Object.keys(MOCK_LORAS)) delete MOCK_LORAS[key];
     Object.assign(MOCK_JOBS, data.jobs || {});
     Object.assign(MOCK_CHARACTERS, data.characters || {});
     Object.assign(MOCK_STORIES, data.stories || {});
@@ -661,14 +666,68 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
   return res.status(202).json(newCharacter);
 });
 
+// Exported function for SQS worker to call
+export async function executeLoraTraining(characterId: string, loraId: string) {
+  console.log(`[LoRA] Starting training pipeline for character ${characterId}, lora ${loraId}...`);
+  const character = MOCK_CHARACTERS[characterId];
+  const loraMetadata = MOCK_LORAS[loraId];
+
+  if (!character || !loraMetadata) {
+    console.error(`[LoRA] Character ${characterId} or LoRA ${loraId} not found in database!`);
+    return;
+  }
+
+  try {
+    const provider = new RunPodVideoProvider({
+      apiKey: process.env.RUNPOD_API_KEY || '',
+      fluxEndpointId: process.env.RUNPOD_FLUX_ENDPOINT_ID || '',
+      wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
+      ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
+      audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
+      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
+    });
+
+    if (!character.imageUrl) {
+      console.error(`[LoRA] Character ${characterId} has no base image!`);
+      loraMetadata.status = 'failed';
+      await saveDb();
+      return;
+    }
+
+    console.log(`[LoRA] Using character image as dataset for character ${characterId}...`);
+    loraMetadata.datasetUrls = [character.imageUrl];
+    loraMetadata.status = 'training';
+    await saveDb();
+
+    console.log(`[LoRA] Dispatching training job to LoRA endpoint...`);
+    const safetensorsUrl = await provider.trainLora(loraId, loraMetadata.triggerToken, loraMetadata.datasetUrls);
+    
+    if (safetensorsUrl) {
+      loraMetadata.safetensorsUrl = safetensorsUrl;
+      loraMetadata.status = 'completed';
+      console.log(`[LoRA] Training complete! LoRA URL: ${safetensorsUrl}`);
+      await saveDb();
+    } else {
+      throw new Error("No URL returned from training");
+    }
+    
+  } catch (err) {
+    console.error(`[LoRA] Training failed:`, err);
+    loraMetadata.status = 'failed';
+    await saveDb();
+  }
+}
+
 app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  // Use character_id to match the route param
-  const id = req.params.character_id || characterId;
+  const id = req.params.character_id;
   const character = MOCK_CHARACTERS[id];
   
   if (!character) {
     return res.status(404).json({ error: 'Character not found' });
+  }
+
+  if (!character.imageUrl) {
+    return res.status(400).json({ error: 'Character has no base image' });
   }
 
   // Create LoRA metadata record
@@ -687,45 +746,20 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
   character.loraId = loraId;
   
   await saveDb();
-  res.status(202).json({ success: true, message: 'Dataset generation started', loraId });
 
-  // Start background generation
-  try {
-    const provider = new RunPodVideoProvider({
-      apiKey: process.env.RUNPOD_API_KEY || '',
-      fluxEndpointId: process.env.RUNPOD_FLUX_ENDPOINT_ID || '',
-      wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
-      ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
-      audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
-      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
-    });
-
-    if (!character.imageUrl) {
-      return res.status(400).json({ error: 'Character has no base image' });
-    }
-
-    console.log(`[LoRA] Using character sheet for dataset generation for character ${id}...`);
-    loraMetadata.datasetUrls = [character.imageUrl];
-    loraMetadata.status = 'dataset_ready';
-    console.log(`[LoRA] Dataset generation complete! Sending character sheet to LoRA worker for cropping.`);
-    
-    console.log(`[LoRA] Dispatching training job to LoRA endpoint...`);
-    const safetensorsUrl = await provider.trainLora(loraId, loraMetadata.triggerToken, loraMetadata.datasetUrls);
-    
-    if (safetensorsUrl) {
-      loraMetadata.safetensorsUrl = safetensorsUrl;
-      loraMetadata.status = 'completed';
-      console.log(`[LoRA] Training complete! LoRA URL: ${safetensorsUrl}`);
-      await saveDb();
-    } else {
-      throw new Error("No URL returned from training");
-    }
-    
-  } catch (err) {
-    console.error(`[LoRA] Dataset generation failed:`, err);
-    loraMetadata.status = 'failed';
-    await saveDb();
+  // Dispatch to SQS worker (15min timeout) instead of running inline (30s timeout)
+  if (IS_SERVERLESS && process.env.SQS_QUEUE_URL) {
+    console.log(`[POST] Dispatching LoRA training for character ${id} to SQS...`);
+    await sqsClient.send(new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({ type: 'lora-train', characterId: id, loraId })
+    }));
+  } else {
+    // Local: run in background
+    executeLoraTraining(id, loraId).catch(console.error);
   }
+
+  return res.status(202).json({ success: true, message: 'LoRA training started', loraId });
 });
 
 app.get('/api/v1/characters', (req: Request, res: Response) => {

@@ -7,7 +7,6 @@ import runpod
 import boto3
 import requests
 import certifi
-import cv2
 from botocore.config import Config
 
 # Cloudflare R2 Config
@@ -53,6 +52,15 @@ def upload_to_r2(local_path: str, bucket_key: str) -> str:
     print(f"[Trainer] Upload complete: {public_url}")
     return public_url
 
+def try_import_cv2():
+    """Try to import cv2, return None if not available."""
+    try:
+        import cv2
+        return cv2
+    except ImportError:
+        print("[Trainer] WARNING: cv2 not available, skipping character sheet splitting")
+        return None
+
 def handler(job):
     job_input = job.get("input", {})
     dataset_urls = job_input.get("dataset_urls", [])
@@ -78,6 +86,8 @@ def handler(job):
         concept_dir = os.path.join(img_dir, f"10_{trigger_token}")
         os.makedirs(concept_dir, exist_ok=True)
         
+        cv2 = try_import_cv2()
+        
         for idx, url in enumerate(dataset_urls):
             res = requests.get(url, stream=True)
             res.raise_for_status()
@@ -89,38 +99,44 @@ def handler(job):
                 for chunk in res.iter_content(chunk_size=8192):
                     f.write(chunk)
             
-            # Post-process: Auto-crop character sheets
-            img = cv2.imread(file_path)
-            txt_path_orig = os.path.join(concept_dir, f"{idx}.txt")
-            
-            if img is not None:
-                h, w = img.shape[:2]
-                if w > h * 1.5:  # Wide image (character sheet)
-                    print(f"[Trainer] Image {idx} is a character sheet ({w}x{h}). Splitting into 3...")
-                    piece_w = w // 3
-                    for i in range(3):
-                        crop = img[:, i*piece_w:(i+1)*piece_w]
-                        crop_path = os.path.join(concept_dir, f"{idx}_{i}.{ext}")
-                        cv2.imwrite(crop_path, crop)
+            # Post-process: Auto-crop character sheets if cv2 available
+            if cv2 is not None:
+                img = cv2.imread(file_path)
+                if img is not None:
+                    h, w = img.shape[:2]
+                    if w > h * 1.5:  # Wide image (character sheet)
+                        print(f"[Trainer] Image {idx} is a character sheet ({w}x{h}). Splitting into 3...")
+                        piece_w = w // 3
+                        for i in range(3):
+                            crop = img[:, i*piece_w:(i+1)*piece_w]
+                            crop_path = os.path.join(concept_dir, f"{idx}_{i}.{ext}")
+                            cv2.imwrite(crop_path, crop)
+                            
+                            # Create caption for each crop
+                            crop_txt_path = os.path.join(concept_dir, f"{idx}_{i}.txt")
+                            with open(crop_txt_path, 'w') as f:
+                                f.write(f"{trigger_token}, cinematic, highly detailed")
                         
-                        # Create caption for each crop
-                        crop_txt_path = os.path.join(concept_dir, f"{idx}_{i}.txt")
-                        with open(crop_txt_path, 'w') as f:
+                        # Clean up the original sheet
+                        os.remove(file_path)
+                    else:
+                        # Regular image - create caption
+                        txt_path = os.path.join(concept_dir, f"{idx}.txt")
+                        with open(txt_path, 'w') as f:
                             f.write(f"{trigger_token}, cinematic, highly detailed")
-                    
-                    # Clean up the original sheet
-                    os.remove(file_path)
                 else:
-                    # Regular image
-                    with open(txt_path_orig, 'w') as f:
+                    txt_path = os.path.join(concept_dir, f"{idx}.txt")
+                    with open(txt_path, 'w') as f:
                         f.write(f"{trigger_token}, cinematic, highly detailed")
             else:
-                # Fallback if cv2 fails to read
-                with open(txt_path_orig, 'w') as f:
+                # No cv2 - just write caption
+                txt_path = os.path.join(concept_dir, f"{idx}.txt")
+                with open(txt_path, 'w') as f:
                     f.write(f"{trigger_token}, cinematic, highly detailed")
                 
         num_images = len([f for f in os.listdir(concept_dir) if f.endswith(('.jpg', '.png', '.jpeg'))])
         print(f"[Trainer] Dataset prepared: {num_images} images at {concept_dir}")
+        print(f"[Trainer] Dataset files: {os.listdir(concept_dir)}")
         
         # 2. Run Training
         output_name = lora_id
@@ -135,7 +151,7 @@ def handler(job):
             "--logging_dir", log_dir,
             "--resolution", "1024,1024",
             "--train_batch_size", "1",
-            "--learning_rate", "5e-4",
+            "--learning_rate", "1e-4",
             "--lr_scheduler", "cosine",
             "--lr_warmup_steps", "0",
             "--max_train_epochs", "3",
@@ -147,27 +163,42 @@ def handler(job):
             "--save_precision", "fp16",
             "--cache_latents",
             "--gradient_checkpointing",
-            "--optimizer_type", "AdamW8bit",
+            "--optimizer_type", "AdamW",
             "--max_data_loader_n_workers", "2",
             "--bucket_no_upscale",
             "--enable_bucket",
             "--min_bucket_reso", "256",
             "--max_bucket_reso", "2048",
+            "--xformers",
         ]
         
-        print(f"[Trainer] Launching training: {' '.join(cmd[:5])}...")
-        result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
-            timeout=3600  # 1 hour max
+        print(f"[Trainer] Launching training with {num_images} images...")
+        print(f"[Trainer] Full command: {' '.join(cmd)}")
+        
+        # Use Popen to stream output in real-time for better debugging
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
+            text=True,
+            bufsize=1  # Line buffered
         )
         
-        if result.returncode != 0:
-            print(f"[Trainer] Training stderr: {result.stderr[-2000:]}")
-            raise Exception(f"Training failed with exit code {result.returncode}: {result.stderr[-500:]}")
+        output_lines = []
+        for line in process.stdout:
+            line = line.rstrip()
+            print(f"[Training] {line}")
+            output_lines.append(line)
         
-        print(f"[Trainer] Training stdout (last 500 chars): {result.stdout[-500:]}")
+        process.wait(timeout=3600)
+        
+        if process.returncode != 0:
+            full_output = "\n".join(output_lines[-50:])  # Last 50 lines
+            print(f"[Trainer] Training FAILED (exit code {process.returncode})")
+            print(f"[Trainer] Last 50 lines of output:\n{full_output}")
+            raise Exception(f"Training failed with exit code {process.returncode}. Last output: {full_output[-1000:]}")
+        
+        print(f"[Trainer] Training completed successfully!")
         
         # 3. Find the output safetensors file
         output_file = os.path.join(out_dir, f"{output_name}.safetensors")
@@ -182,7 +213,7 @@ def handler(job):
             raise Exception(f"No .safetensors file found in {out_dir}. Contents: {os.listdir(out_dir)}")
         
         file_size = os.path.getsize(output_file)
-        print(f"[Trainer] Training complete! LoRA file: {output_file} ({file_size / 1024 / 1024:.1f} MB)")
+        print(f"[Trainer] LoRA file: {output_file} ({file_size / 1024 / 1024:.1f} MB)")
         
         # 4. Upload LoRA to R2
         r2_key = f"loras/{lora_id}.safetensors"
