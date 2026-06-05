@@ -37,6 +37,7 @@ interface Scene {
   videoUrl?: string | null;
   loraSafetensorsUrl?: string;
   loraTriggerToken?: string;
+  characterImageUrl?: string;
 }
 
 interface Job {
@@ -1173,10 +1174,17 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
       if (primaryChar && primaryChar.loraId) {
         const lora = MOCK_LORAS[primaryChar.loraId];
         if (lora && lora.status === 'completed' && lora.safetensorsUrl) {
-           console.log(`[Stories] Primary character has completed LoRA. Injecting into all scenes!`);
+           console.log(`[Stories] Primary character has completed LoRA. Injecting LoRA + character reference into all scenes!`);
            story.scenes.forEach(scene => {
              scene.loraSafetensorsUrl = lora.safetensorsUrl;
              scene.loraTriggerToken = lora.triggerToken;
+             scene.characterImageUrl = primaryChar.imageUrl || undefined;
+           });
+        } else if (primaryChar.imageUrl) {
+           // Even without LoRA, use character portrait as Img2Img reference for consistency
+           console.log(`[Stories] No LoRA, but injecting character image as reference into all scenes.`);
+           story.scenes.forEach(scene => {
+             scene.characterImageUrl = primaryChar.imageUrl || undefined;
            });
         }
       }

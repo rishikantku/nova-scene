@@ -29,6 +29,31 @@ CACHE_DIR = os.environ.get("HF_HOME", "/runpod-volume/huggingface")
 
 # Global pipeline reference for hot containers
 pipe = None
+current_lora_url = None  # Track which character LoRA is loaded
+
+def download_lora_file(lora_url: str) -> str:
+    """Download a LoRA safetensors file to temp and return the local path."""
+    lora_dir = os.path.join(CACHE_DIR, "loras")
+    os.makedirs(lora_dir, exist_ok=True)
+    
+    # Use URL hash as filename for caching
+    import hashlib
+    url_hash = hashlib.md5(lora_url.encode()).hexdigest()[:12]
+    local_path = os.path.join(lora_dir, f"lora_{url_hash}.safetensors")
+    
+    if os.path.exists(local_path):
+        print(f"[Flux Worker] LoRA already cached: {local_path}")
+        return local_path
+    
+    print(f"[Flux Worker] Downloading LoRA from {lora_url}...")
+    response = requests.get(lora_url, stream=True)
+    response.raise_for_status()
+    with open(local_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    size_mb = os.path.getsize(local_path) / (1024 * 1024)
+    print(f"[Flux Worker] LoRA downloaded: {local_path} ({size_mb:.1f} MB)")
+    return local_path
 
 def get_pipeline():
     global pipe
@@ -111,6 +136,49 @@ def handler(job):
         
         lora_scale = 1.0 if is_nsfw else 0.0
         enhanced_prompt = prompt + ", uncensored, nsfw" if is_nsfw else prompt
+        
+        # Handle dynamic per-request character LoRA loading
+        global current_lora_url
+        requested_lora_url = job_input.get("lora_safetensors_url")
+        
+        if requested_lora_url and requested_lora_url != current_lora_url:
+            # Unload any previously loaded character LoRA
+            if current_lora_url:
+                print(f"[Flux Worker] Unloading previous character LoRA...")
+                try:
+                    pipeline.unload_lora_weights()
+                except Exception:
+                    pass
+                # Reload the base uncensored LoRA
+                try:
+                    pipeline.load_lora_weights("enhanceaiteam/Flux-uncensored")
+                except Exception:
+                    pass
+            
+            # Load the new character LoRA
+            print(f"[Flux Worker] Loading character LoRA: {requested_lora_url}")
+            lora_path = download_lora_file(requested_lora_url)
+            pipeline.load_lora_weights(lora_path)
+            current_lora_url = requested_lora_url
+            lora_scale = 1.0  # Activate LoRA for character consistency
+            print(f"[Flux Worker] Character LoRA loaded successfully!")
+        elif requested_lora_url:
+            # Same LoRA already loaded, just ensure scale is active
+            lora_scale = 1.0
+            print(f"[Flux Worker] Reusing already-loaded character LoRA")
+        elif current_lora_url:
+            # No LoRA requested but one is loaded — unload it
+            print(f"[Flux Worker] No LoRA requested, unloading character LoRA...")
+            try:
+                pipeline.unload_lora_weights()
+            except Exception:
+                pass
+            # Reload base uncensored LoRA
+            try:
+                pipeline.load_lora_weights("enhanceaiteam/Flux-uncensored")
+            except Exception:
+                pass
+            current_lora_url = None
         
         # Check for Image Prompt (Style Transfer / Character Reference)
         image_prompt_url = job_input.get("image_prompt_url")

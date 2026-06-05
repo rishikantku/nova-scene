@@ -18,6 +18,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -32,3 +35,5 @@ jobs:
           file: Dockerfile.lora
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/nova-scene-lora:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/nova-scene-lora:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/nova-scene-lora:buildcache,mode=max

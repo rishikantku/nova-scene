@@ -16,6 +16,9 @@ R2_ENDPOINT_URL = "https://1a33db30740b936c38a50defea0fd609.r2.cloudflarestorage
 R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "novascene-assets")
 R2_CDN_URL = "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev"
 
+# Model cache directory (persists across invocations on RunPod network volume)
+CACHE_DIR = os.environ.get("MODEL_CACHE", "/runpod-volume/flux-models")
+
 def upload_to_r2(local_path: str, bucket_key: str) -> str:
     print(f"[Trainer] Uploading {local_path} to R2 as {bucket_key}...")
     
@@ -61,6 +64,69 @@ def try_import_cv2():
         print("[Trainer] WARNING: cv2 not available, skipping character sheet splitting")
         return None
 
+def download_flux_models():
+    """Download Flux model components if not already cached."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    
+    # We use HuggingFace hub to download the individual components
+    from huggingface_hub import hf_hub_download
+    
+    hf_token = os.environ.get("HF_TOKEN")
+    
+    models = {
+        "flux1-dev.safetensors": ("black-forest-labs/FLUX.1-dev", "flux1-dev.safetensors"),
+        "clip_l.safetensors": ("comfyanonymous/flux_text_encoders", "clip_l.safetensors"),
+        "t5xxl_fp16.safetensors": ("comfyanonymous/flux_text_encoders", "t5xxl_fp16.safetensors"),
+        "ae.safetensors": ("black-forest-labs/FLUX.1-dev", "ae.safetensors"),
+    }
+    
+    paths = {}
+    for filename, (repo_id, repo_filename) in models.items():
+        local_path = os.path.join(CACHE_DIR, filename)
+        if os.path.exists(local_path):
+            size_mb = os.path.getsize(local_path) / (1024 * 1024)
+            print(f"[Trainer] {filename} already cached ({size_mb:.0f} MB)")
+            paths[filename] = local_path
+        else:
+            print(f"[Trainer] Downloading {filename} from {repo_id}...")
+            downloaded = hf_hub_download(
+                repo_id=repo_id,
+                filename=repo_filename,
+                local_dir=CACHE_DIR,
+                token=hf_token
+            )
+            paths[filename] = downloaded
+            size_mb = os.path.getsize(downloaded) / (1024 * 1024)
+            print(f"[Trainer] Downloaded {filename} ({size_mb:.0f} MB)")
+    
+    return paths
+
+
+def create_dataset_toml(img_dir: str, trigger_token: str, toml_path: str):
+    """Create a dataset TOML config file for Flux training."""
+    # Flux training with kohya requires a TOML dataset config
+    toml_content = f"""[general]
+shuffle_caption = true
+caption_extension = '.txt'
+keep_tokens = 1
+
+[[datasets]]
+resolution = 1024
+batch_size = 1
+enable_bucket = true
+min_bucket_reso = 512
+max_bucket_reso = 2048
+bucket_no_upscale = true
+
+  [[datasets.subsets]]
+  image_dir = '{img_dir}'
+  num_repeats = 20
+"""
+    with open(toml_path, 'w') as f:
+        f.write(toml_content)
+    print(f"[Trainer] Created dataset config at {toml_path}")
+
+
 def handler(job):
     job_input = job.get("input", {})
     dataset_urls = job_input.get("dataset_urls", [])
@@ -79,13 +145,13 @@ def handler(job):
     os.makedirs(log_dir, exist_ok=True)
     
     try:
+        # 0. Ensure Flux model components are downloaded
+        print(f"[Trainer] Checking Flux model cache...")
+        model_paths = download_flux_models()
+        
         print(f"[Trainer] Downloading {len(dataset_urls)} images for LoRA {lora_id}...")
         
-        # 1. Download Dataset
-        # Kohya expects folders in format: {repeats}_{trigger_token}
-        concept_dir = os.path.join(img_dir, f"10_{trigger_token}")
-        os.makedirs(concept_dir, exist_ok=True)
-        
+        # 1. Download Dataset (no concept_dir subfolder for Flux — uses TOML config)
         cv2 = try_import_cv2()
         
         for idx, url in enumerate(dataset_urls):
@@ -94,7 +160,7 @@ def handler(job):
             ext = url.split('.')[-1].split('?')[0]
             if ext not in ['jpg', 'png', 'jpeg']:
                 ext = 'jpg'
-            file_path = os.path.join(concept_dir, f"{idx}.{ext}")
+            file_path = os.path.join(img_dir, f"{idx}.{ext}")
             with open(file_path, 'wb') as f:
                 for chunk in res.iter_content(chunk_size=8192):
                     f.write(chunk)
@@ -109,70 +175,73 @@ def handler(job):
                         piece_w = w // 3
                         for i in range(3):
                             crop = img[:, i*piece_w:(i+1)*piece_w]
-                            crop_path = os.path.join(concept_dir, f"{idx}_{i}.{ext}")
+                            crop_path = os.path.join(img_dir, f"{idx}_{i}.{ext}")
                             cv2.imwrite(crop_path, crop)
                             
                             # Create caption for each crop
-                            crop_txt_path = os.path.join(concept_dir, f"{idx}_{i}.txt")
+                            crop_txt_path = os.path.join(img_dir, f"{idx}_{i}.txt")
                             with open(crop_txt_path, 'w') as f:
                                 f.write(f"{trigger_token}, cinematic, highly detailed")
                         
                         # Clean up the original sheet
                         os.remove(file_path)
                     else:
-                        # Regular image - create caption
-                        txt_path = os.path.join(concept_dir, f"{idx}.txt")
+                        # Regular image — create caption
+                        txt_path = os.path.join(img_dir, f"{idx}.txt")
                         with open(txt_path, 'w') as f:
                             f.write(f"{trigger_token}, cinematic, highly detailed")
                 else:
-                    txt_path = os.path.join(concept_dir, f"{idx}.txt")
+                    txt_path = os.path.join(img_dir, f"{idx}.txt")
                     with open(txt_path, 'w') as f:
                         f.write(f"{trigger_token}, cinematic, highly detailed")
             else:
-                # No cv2 - just write caption
-                txt_path = os.path.join(concept_dir, f"{idx}.txt")
+                # No cv2 — just write caption
+                txt_path = os.path.join(img_dir, f"{idx}.txt")
                 with open(txt_path, 'w') as f:
                     f.write(f"{trigger_token}, cinematic, highly detailed")
                 
-        num_images = len([f for f in os.listdir(concept_dir) if f.endswith(('.jpg', '.png', '.jpeg'))])
-        print(f"[Trainer] Dataset prepared: {num_images} images at {concept_dir}")
-        print(f"[Trainer] Dataset files: {os.listdir(concept_dir)}")
+        num_images = len([f for f in os.listdir(img_dir) if f.endswith(('.jpg', '.png', '.jpeg'))])
+        print(f"[Trainer] Dataset prepared: {num_images} images at {img_dir}")
+        print(f"[Trainer] Dataset files: {os.listdir(img_dir)}")
         
-        # 2. Run Training
+        # Create dataset TOML config (required for Flux training)
+        toml_path = os.path.join(workspace_dir, "dataset.toml")
+        create_dataset_toml(img_dir, trigger_token, toml_path)
+        
+        # 2. Run Flux LoRA Training
         output_name = lora_id
         cmd = [
             "accelerate", "launch",
             "--num_cpu_threads_per_process=2",
-            "/workspace/sd-scripts/sdxl_train_network.py",
-            "--pretrained_model_name_or_path", "stabilityai/stable-diffusion-xl-base-1.0",
-            "--train_data_dir", img_dir,
+            "/workspace/sd-scripts/flux_train_network.py",
+            "--pretrained_model_name_or_path", model_paths["flux1-dev.safetensors"],
+            "--clip_l", model_paths["clip_l.safetensors"],
+            "--t5xxl", model_paths["t5xxl_fp16.safetensors"],
+            "--ae", model_paths["ae.safetensors"],
+            "--dataset_config", toml_path,
             "--output_dir", out_dir,
             "--output_name", output_name,
             "--logging_dir", log_dir,
-            "--resolution", "1024,1024",
-            "--train_batch_size", "1",
-            "--learning_rate", "1e-4",
-            "--lr_scheduler", "cosine",
-            "--lr_warmup_steps", "0",
-            "--max_train_epochs", "3",
+            "--network_module", "networks.lora_flux",
             "--network_dim", "16",
             "--network_alpha", "8",
-            "--network_module", "networks.lora",
+            "--learning_rate", "1e-4",
+            "--lr_scheduler", "constant",
+            "--max_train_epochs", "10",
             "--save_model_as", "safetensors",
-            "--mixed_precision", "fp16",
-            "--save_precision", "fp16",
+            "--mixed_precision", "bf16",
+            "--save_precision", "bf16",
             "--cache_latents",
+            "--cache_text_encoder_outputs",
             "--gradient_checkpointing",
             "--optimizer_type", "AdamW",
+            "--timestep_sampling", "flux_shift",
+            "--model_prediction_type", "raw",
             "--max_data_loader_n_workers", "2",
-            "--bucket_no_upscale",
-            "--enable_bucket",
-            "--min_bucket_reso", "256",
-            "--max_bucket_reso", "2048",
             "--xformers",
         ]
         
-        print(f"[Trainer] Launching training with {num_images} images...")
+        print(f"[Trainer] Launching Flux LoRA training with {num_images} images, 10 epochs...")
         print(f"[Trainer] Full command: {' '.join(cmd)}")
         
         # Use Popen to stream output in real-time for better debugging
@@ -219,7 +288,7 @@ def handler(job):
         r2_key = f"loras/{lora_id}.safetensors"
         public_url = upload_to_r2(output_file, r2_key)
         
-        # 5. Cleanup
+        # 5. Cleanup training workspace (keep model cache)
         shutil.rmtree(workspace_dir, ignore_errors=True)
         
         return {"lora_url": public_url, "lora_id": lora_id}
@@ -234,5 +303,5 @@ def handler(job):
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    print("[Trainer Worker] Starting RunPod Serverless Handler...")
+    print("[Trainer Worker] Starting RunPod Serverless Flux LoRA Trainer...")
     runpod.serverless.start({"handler": handler})

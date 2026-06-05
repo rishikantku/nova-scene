@@ -41,6 +41,7 @@ export interface OrchestratorScene {
   videoUrl?: string | null;
   loraSafetensorsUrl?: string;
   loraTriggerToken?: string;
+  characterImageUrl?: string;
 }
 
 export interface OrchestratorProgressUpdate {
@@ -382,11 +383,28 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
           updateSceneAndNotify(scene.index, { status: 'completed' });
           return videoUrl;
         }
+
+        // Prepare the final prompt with trigger token prepended
+        let finalPrompt = scene.prompt;
+        if (scene.loraTriggerToken && !finalPrompt.includes(scene.loraTriggerToken)) {
+            finalPrompt = `${scene.loraTriggerToken}, ${finalPrompt}`;
+        }
         
         if (!imageUrl) {
           updateSceneAndNotify(scene.index, { status: 'generating_image' });
-          // Generate Flux Keyframe
-          imageUrl = await this.provider.generateImage(scene.prompt, '16:9');
+          
+          // Build image generation options — pass character reference for Img2Img consistency
+          const imgOptions: Record<string, any> = {};
+          if (scene.loraSafetensorsUrl) {
+            imgOptions.lora_safetensors_url = scene.loraSafetensorsUrl;
+          }
+          if (scene.characterImageUrl) {
+            imgOptions.image_prompt_url = scene.characterImageUrl;
+            console.log(`[Orchestrator] Scene ${scene.index}: Using character reference image for Img2Img consistency`);
+          }
+          
+          // Generate Flux Keyframe with character reference + trigger token
+          imageUrl = await this.provider.generateImage(finalPrompt, '16:9', imgOptions);
         } else {
           console.log(`[Orchestrator] Scene ${scene.index} already has an injected imageUrl, skipping generation.`);
         }
@@ -400,12 +418,6 @@ Return a JSON object with two keys: "audioPrompt" (string) and "scenes" (an arra
         const options: any = {};
         if (scene.loraSafetensorsUrl) {
            options.lora_safetensors_url = scene.loraSafetensorsUrl;
-        }
-        
-        // Append trigger token to prompt if not already present
-        let finalPrompt = scene.prompt;
-        if (scene.loraTriggerToken && !finalPrompt.includes(scene.loraTriggerToken)) {
-            finalPrompt = `${scene.loraTriggerToken}, ${finalPrompt}`;
         }
         
         console.log(`[Orchestrator] Rendering video for scene ${scene.index}...`);

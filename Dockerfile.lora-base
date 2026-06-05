@@ -5,7 +5,7 @@ WORKDIR /workspace
 # Install system dependencies (including git for kohya)
 RUN apt-get update && apt-get install -y git ffmpeg libgl1-mesa-glx && rm -rf /var/lib/apt/lists/*
 
-# Clone sd-scripts for SDXL LoRA training
+# Clone sd-scripts for Flux/SDXL LoRA training
 RUN git clone --depth 1 https://github.com/kohya-ss/sd-scripts.git
 
 # Install sd-scripts dependencies natively (using pre-installed PyTorch 2.4.0)
@@ -15,5 +15,6 @@ RUN pip install -r requirements.txt
 # Install xformers for memory-efficient attention (compatible with PyTorch 2.4.0)
 RUN pip install xformers==0.0.27.post2
 
-# Install runpod SDK and upload deps
-RUN pip install runpod boto3 certifi requests
+# Install runpod SDK, upload deps, and huggingface_hub for model downloads
+RUN pip install runpod boto3 certifi requests huggingface_hub
+
