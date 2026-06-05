@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Loader2, Plus, Film, Clock, AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { getVideoSrc } from "@/utils/video";
 
 interface Story {
   id: string;
@@ -128,7 +129,7 @@ export default function StoriesPage() {
                 <div className="aspect-video bg-zinc-900 relative overflow-hidden flex items-center justify-center">
                   {story.finalVideoUrl ? (
                     <video 
-                      src={story.finalVideoUrl} 
+                      src={getVideoSrc(story.finalVideoUrl)} 
                       poster={story.scenes?.[0]?.imageUrl || undefined}
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                       muted 

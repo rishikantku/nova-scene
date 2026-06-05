@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { Film, Play, Loader2, Sparkles, CheckCircle2, Clock, Trash2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import { getVideoSrc } from "@/utils/video";
 
 interface Scene {
   id: string;
@@ -185,7 +186,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
         </header>
 
         <div className="w-full aspect-video bg-black rounded-3xl border-2 border-white/10 shadow-[0_0_80px_rgba(217,70,239,0.15)] overflow-hidden mb-12 relative group">
-           <video src={story.finalVideoUrl} controls className="w-full h-full object-cover" autoPlay />
+           <video src={getVideoSrc(story.finalVideoUrl)} controls className="w-full h-full object-cover" autoPlay />
         </div>
         
         <div className="mb-6 flex items-center justify-between">
@@ -198,7 +199,7 @@ export default function StoryBoard({ params }: { params: Promise<{ id: string }>
               <div className="aspect-[16/9] bg-zinc-900 relative">
                 {scene.videoUrl ? (
                   <video 
-                    src={scene.videoUrl} 
+                    src={getVideoSrc(scene.videoUrl)} 
                     className="w-full h-full object-cover"
                     controls 
                   />

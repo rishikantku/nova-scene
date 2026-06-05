@@ -20,6 +20,7 @@ import {
   Save,
   X
 } from "lucide-react";
+import { getVideoSrc } from "@/utils/video";
 
 interface Scene {
   id: string;
@@ -573,7 +574,7 @@ export default function Home() {
                     <div className="w-full h-full relative flex-1 min-h-[200px]">
                       <video 
                         key={selectedPreview.url}
-                        src={selectedPreview.url} 
+                        src={getVideoSrc(selectedPreview.url)} 
                         controls
                         autoPlay
                         muted
