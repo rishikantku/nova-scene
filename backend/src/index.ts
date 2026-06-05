@@ -534,6 +534,7 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
   if (!apiKey || apiKey === 'mock-runpod-key') {
      console.log(`[Characters] Mocking character generation for ${name}...`);
      newCharacter.imageUrl = "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_mock.jpg";
+     await saveDb();
      return res.status(201).json(newCharacter);
   }
 
@@ -572,6 +573,7 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
     newCharacter.imageUrl = imageUrl;
     MOCK_CHARACTERS[characterId] = newCharacter;
     
+    await saveDb();
     // Return the character immediately
     res.status(201).json(newCharacter);
 
@@ -621,9 +623,11 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
           } else {
             throw new Error('No URL returned from training');
           }
+          await saveDb();
         } catch (err: any) {
           console.error(`[LoRA] ❌ Pipeline failed for ${name}:`, err.message);
           loraMetadata.status = 'failed';
+          await saveDb();
         }
       })();
     }
@@ -660,6 +664,7 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
   MOCK_LORAS[loraId] = loraMetadata;
   character.loraId = loraId;
   
+  await saveDb();
   res.status(202).json({ success: true, message: 'Dataset generation started', loraId });
 
   // Start background generation
@@ -689,6 +694,7 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
       loraMetadata.safetensorsUrl = safetensorsUrl;
       loraMetadata.status = 'completed';
       console.log(`[LoRA] Training complete! LoRA URL: ${safetensorsUrl}`);
+      await saveDb();
     } else {
       throw new Error("No URL returned from training");
     }
@@ -696,6 +702,7 @@ app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Reques
   } catch (err) {
     console.error(`[LoRA] Dataset generation failed:`, err);
     loraMetadata.status = 'failed';
+    await saveDb();
   }
 });
 
@@ -824,7 +831,7 @@ app.post('/api/v1/characters/:character_id/regenerate', async (req: Request, res
   }
 });
 
-app.delete('/api/v1/characters/:character_id', (req: Request, res: Response) => {
+app.delete('/api/v1/characters/:character_id', async (req: Request, res: Response) => {
   const { character_id } = req.params;
   const character = MOCK_CHARACTERS[character_id];
   
@@ -841,6 +848,7 @@ app.delete('/api/v1/characters/:character_id', (req: Request, res: Response) => 
   delete MOCK_CHARACTERS[character_id];
   console.log(`[Characters] Deleted character: ${character.name} (${character_id})`);
   
+  await saveDb();
   return res.json({ success: true, message: `Character '${character.name}' deleted` });
 });
 
@@ -967,8 +975,7 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
     }
   }
 
-  story.status = 'generating_board';
-  
+  await saveDb();
   // Return immediately since planning can take 5-10s via LLM
   res.status(202).json({ success: true, message: 'Generating storyboard...' });
 
@@ -1018,9 +1025,11 @@ app.post('/api/v1/stories/:story_id/generate-board', async (req: Request, res: R
 
     story.status = 'board_ready';
     console.log(`[Stories] Board generated for ${story.id} with ${story.scenes.length} scenes.`);
+    await saveDb();
   } catch (error) {
     console.error(`[Stories] Failed to generate board:`, error);
     story.status = 'failed';
+    await saveDb();
   }
 });
 
@@ -1033,17 +1042,7 @@ app.delete('/api/v1/stories/:story_id', async (req: Request, res: Response) => {
   }
   
   delete MOCK_STORIES[story_id];
-  
-  // Persist to DB
-  try {
-    const data = JSON.parse(await fs.promises.readFile(DB_PATH, 'utf-8'));
-    delete data.stories[story_id];
-    await fs.promises.writeFile(DB_PATH, JSON.stringify(data, null, 2));
-    console.log(`[Stories] Deleted story ${story_id}`);
-  } catch (err) {
-    console.error('[Stories] Failed to persist story deletion:', err);
-  }
-  
+  await saveDb();
   res.status(200).json({ success: true });
 });
 
@@ -1063,18 +1062,7 @@ app.delete('/api/v1/stories/:story_id/scenes/:scene_id', async (req: Request, re
     return res.status(404).json({ error: 'Scene not found in story' });
   }
   
-  // Persist to DB
-  try {
-    const data = JSON.parse(await fs.promises.readFile(DB_PATH, 'utf-8'));
-    if (data.stories[story_id]) {
-        data.stories[story_id].scenes = story.scenes;
-        await fs.promises.writeFile(DB_PATH, JSON.stringify(data, null, 2));
-    }
-    console.log(`[Stories] Deleted scene ${scene_id} from story ${story_id}`);
-  } catch (err) {
-    console.error('[Stories] Failed to persist scene deletion:', err);
-  }
-  
+  await saveDb();
   res.status(200).json({ success: true, scenes: story.scenes });
 });
 
@@ -1097,6 +1085,7 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
   }
 
   story.status = 'generating_video';
+  await saveDb();
   res.status(202).json({ success: true, message: 'Rendering story video...' });
 
   // Async render
@@ -1165,9 +1154,11 @@ app.post('/api/v1/stories/:story_id/render', async (req: Request, res: Response)
     
     story.status = 'completed';
     console.log(`[Stories] Story ${story.id} render completed! URL: ${story.finalVideoUrl}`);
+    await saveDb();
   } catch (err) {
     console.error(`[Stories] Story render failed:`, err);
     story.status = 'failed';
+    await saveDb();
   }
 });
 

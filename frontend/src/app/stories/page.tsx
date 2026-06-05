@@ -121,6 +121,7 @@ export default function StoriesPage() {
                   {story.finalVideoUrl ? (
                     <video 
                       src={story.finalVideoUrl} 
+                      poster={story.scenes?.[0]?.imageUrl || undefined}
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                       muted 
                       loop 
