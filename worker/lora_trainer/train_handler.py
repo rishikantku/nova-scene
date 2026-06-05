@@ -211,8 +211,7 @@ def handler(job):
         # 2. Run Flux LoRA Training
         output_name = lora_id
         cmd = [
-            "accelerate", "launch",
-            "--num_cpu_threads_per_process=2",
+            "/usr/bin/python",
             "/workspace/sd-scripts/flux_train_network.py",
             "--pretrained_model_name_or_path", model_paths["flux1-dev.safetensors"],
             "--clip_l", model_paths["clip_l.safetensors"],
@@ -238,7 +237,6 @@ def handler(job):
             "--timestep_sampling", "flux_shift",
             "--model_prediction_type", "raw",
             "--max_data_loader_n_workers", "2",
-            "--xformers",
         ]
         
         print(f"[Trainer] Launching Flux LoRA training with {num_images} images, 10 epochs...")
