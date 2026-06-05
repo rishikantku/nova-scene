@@ -41,6 +41,7 @@ plugins:
 functions:
   api:
     handler: src/lambda.handler
+    timeout: 30
     events:
       - httpApi: '*'
   

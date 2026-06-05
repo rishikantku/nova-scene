@@ -524,6 +524,7 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
     outfit: outfit || 'casual',
     visualStyle: visualStyle || 'Cinematic',
     imageUrl: null,
+    status: 'generating',
     createdAt: new Date().toISOString()
   };
 
@@ -534,9 +535,13 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
   if (!apiKey || apiKey === 'mock-runpod-key') {
      console.log(`[Characters] Mocking character generation for ${name}...`);
      newCharacter.imageUrl = "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_mock.jpg";
+     newCharacter.status = 'ready';
      await saveDb();
      return res.status(201).json(newCharacter);
   }
+
+  // Save the database so it registers the "generating" status immediately in S3/disk
+  await saveDb();
 
   try {
     const provider = new RunPodVideoProvider({
@@ -571,6 +576,7 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
     const imageUrl = await provider.generateImage(prompt, aspectRatio, options);
     
     newCharacter.imageUrl = imageUrl;
+    newCharacter.status = 'ready';
     MOCK_CHARACTERS[characterId] = newCharacter;
     
     await saveDb();
@@ -635,6 +641,9 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
     return;
   } catch (error: any) {
     console.error(`[Characters] Failed to generate character image:`, error);
+    // Cleanup character so it doesn't get stuck in "generating" state
+    delete MOCK_CHARACTERS[characterId];
+    await saveDb();
     return res.status(500).json({ error: 'Failed to generate character image', details: error.message });
   }
 });
