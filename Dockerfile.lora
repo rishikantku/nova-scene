@@ -1,4 +1,4 @@
-FROM runpod/pytorch:2.2.1-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 WORKDIR /workspace
 
@@ -9,14 +9,14 @@ RUN apt-get update && apt-get install -y git ffmpeg libgl1-mesa-glx && rm -rf /v
 RUN git clone --depth 1 https://github.com/kohya-ss/sd-scripts.git
 
 # Install PyTorch (matching base image CUDA version)
-RUN pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu121
+RUN pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 
 # Install sd-scripts dependencies natively
 WORKDIR /workspace/sd-scripts
 RUN pip install -r requirements.txt
 
 # Install xformers for memory-efficient attention
-RUN pip install xformers==0.0.25 --index-url https://download.pytorch.org/whl/cu121
+RUN pip install xformers==0.0.29.post3 --index-url https://download.pytorch.org/whl/cu124
 
 # Install runpod SDK and upload deps
 RUN pip install runpod boto3 certifi requests
