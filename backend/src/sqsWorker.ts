@@ -1,4 +1,4 @@
-import { loadDb, saveDb, simulateJobRenderPhase, simulateJobPlanningPhase } from './index';
+import { loadDb, saveDb, simulateJobRenderPhase, simulateJobPlanningPhase, simulateCharacterGeneration } from './index';
 
 export const handler = async (event: any) => {
   // Load the database from S3
@@ -7,13 +7,13 @@ export const handler = async (event: any) => {
   for (const record of event.Records) {
     try {
       const body = JSON.parse(record.body);
-      if (body.jobId) {
-        console.log(`[SQS Worker] Processing ${body.type} job ${body.jobId}`);
-        if (body.type === 'plan') {
-          await simulateJobPlanningPhase(body.jobId, body.prompt, body.duration, body.visualStyle);
-        } else if (body.type === 'render') {
-          await simulateJobRenderPhase(body.jobId);
-        }
+      console.log(`[SQS Worker] Processing message of type: ${body.type}`);
+      if (body.type === 'plan' && body.jobId) {
+        await simulateJobPlanningPhase(body.jobId, body.prompt, body.duration, body.visualStyle);
+      } else if (body.type === 'render' && body.jobId) {
+        await simulateJobRenderPhase(body.jobId);
+      } else if (body.type === 'character' && body.characterId) {
+        await simulateCharacterGeneration(body.characterId, body.enableLora, body.referenceImageUrl);
       }
     } catch (e) {
       console.error(`[SQS Worker] Failed to process message:`, e);

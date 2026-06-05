@@ -509,6 +509,119 @@ app.get('/api/v1/upload-url', async (req: Request, res: Response) => {
   }
 });
 
+export async function simulateCharacterGeneration(characterId: string, enableLora?: boolean, referenceImageUrl?: string) {
+  console.log(`[Pipeline] Beginning character generation for ${characterId}...`);
+  const newCharacter = MOCK_CHARACTERS[characterId];
+  if (!newCharacter) {
+    console.error(`[Pipeline] Character ${characterId} not found in database!`);
+    return;
+  }
+
+  const apiKey = process.env.RUNPOD_API_KEY;
+  const isMock = !apiKey || apiKey === 'mock-runpod-key';
+
+  if (isMock) {
+     console.log(`[Characters] Mocking character generation for ${newCharacter.name}...`);
+     newCharacter.imageUrl = "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_mock.jpg";
+     newCharacter.status = 'ready';
+     await saveDb();
+     return;
+  }
+
+  try {
+    const provider = new RunPodVideoProvider({
+      apiKey: apiKey!,
+      fluxEndpointId: process.env.RUNPOD_FLUX_ENDPOINT_ID || '',
+      wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
+      ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
+      audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
+      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
+    });
+
+    let prompt: string;
+    let aspectRatio: string;
+
+    if (enableLora) {
+      prompt = `A professional multi-angle full-body character reference sheet of a character, ${newCharacter.visualStyle}. ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The image must contain three separate views of the exact same character side-by-side: a front view, a side profile view, and a 3/4 angle view. The character must be fully visible from head to toe in all angles. Neutral expression, plain white studio background. Highly detailed, consistent character design across all angles.`;
+      aspectRatio = '16:9';
+    } else {
+      prompt = `A highly detailed ${newCharacter.visualStyle} full-body portrait of a character. ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character must be fully visible from head to toe. Looking directly at the camera with a confident expression. Clean studio lighting, soft bokeh background. Cinematic quality, sharp focus, professional character design.`;
+      aspectRatio = '1:1';
+    }
+
+    const options: any = {};
+    if (referenceImageUrl) {
+      options.referenceImageUrl = referenceImageUrl;
+    }
+
+    const imageUrl = await provider.generateImage(prompt, aspectRatio, options);
+    
+    newCharacter.imageUrl = imageUrl;
+    newCharacter.status = 'ready';
+    MOCK_CHARACTERS[characterId] = newCharacter;
+    await saveDb();
+
+    // If Premium mode, kick off LoRA dataset generation + training in the background
+    if (enableLora) {
+      console.log(`[Characters] Premium mode — starting background LoRA pipeline for ${newCharacter.name}...`);
+      
+      const loraId = crypto.randomUUID();
+      const loraMetadata: LoraMetadata = {
+        id: loraId,
+        characterId,
+        version: 1,
+        triggerToken: `ohwx ${newCharacter.name.toLowerCase().replace(/[^a-z]/g, '')}`,
+        datasetUrls: [],
+        status: 'generating_dataset',
+        createdAt: new Date().toISOString()
+      };
+      MOCK_LORAS[loraId] = loraMetadata;
+      newCharacter.loraId = loraId;
+      await saveDb();
+
+      try {
+        const datasetPrompts = [
+          `A close-up portrait of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. Neutral expression, looking directly at the camera, plain white background, highly detailed.`,
+          `A side profile full-body shot of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character is fully visible from head to toe. Looking to the right, plain white background, highly detailed.`,
+          `A 3/4 angle full-body view of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character is fully visible from head to toe. Looking slightly away, plain white background, highly detailed.`,
+          `A full-body shot of ${newCharacter.appearance}. Wearing: ${newCharacter.outfit}. The character is fully visible from head to toe. Standing naturally, plain white background, highly detailed.`
+        ];
+
+        console.log(`[LoRA] Generating ${datasetPrompts.length} dataset images for ${newCharacter.name}...`);
+        for (const p of datasetPrompts) {
+          const url = await provider.generateImage(p, '1:1');
+          loraMetadata.datasetUrls.push(url);
+          console.log(`[LoRA] Dataset image ${loraMetadata.datasetUrls.length}/${datasetPrompts.length}`);
+        }
+
+        // Dispatch training
+        loraMetadata.status = 'training';
+        await saveDb();
+        console.log(`[LoRA] Dispatching training job for ${newCharacter.name}...`);
+        const safetensorsUrl = await provider.trainLora(loraId, loraMetadata.triggerToken, loraMetadata.datasetUrls);
+        
+        if (safetensorsUrl) {
+          loraMetadata.safetensorsUrl = safetensorsUrl;
+          loraMetadata.status = 'completed';
+          console.log(`[LoRA] ✅ Training complete for ${newCharacter.name}! URL: ${safetensorsUrl}`);
+        } else {
+          throw new Error('No URL returned from training');
+        }
+        await saveDb();
+      } catch (err: any) {
+        console.error(`[LoRA] ❌ Pipeline failed for ${newCharacter.name}:`, err.message);
+        loraMetadata.status = 'failed';
+        await saveDb();
+      }
+    }
+  } catch (error: any) {
+    console.error(`[Characters] Failed to generate character image:`, error);
+    // Cleanup character so it doesn't get stuck in "generating" state
+    delete MOCK_CHARACTERS[characterId];
+    await saveDb();
+  }
+}
+
 app.post('/api/v1/characters', async (req: Request, res: Response) => {
   const { name, gender, appearance, outfit, visualStyle, enableLora, referenceImageUrl } = req.body;
   if (!name || !appearance) {
@@ -529,123 +642,23 @@ app.post('/api/v1/characters', async (req: Request, res: Response) => {
   };
 
   MOCK_CHARACTERS[characterId] = newCharacter;
-
-  // Initialize Provider to generate the canonical character image
-  const apiKey = process.env.RUNPOD_API_KEY;
-  if (!apiKey || apiKey === 'mock-runpod-key') {
-     console.log(`[Characters] Mocking character generation for ${name}...`);
-     newCharacter.imageUrl = "https://pub-ec45a978b9c9499886c081c55519c8d9.r2.dev/keyframes/keyframe_mock.jpg";
-     newCharacter.status = 'ready';
-     await saveDb();
-     return res.status(201).json(newCharacter);
-  }
-
-  // Save the database so it registers the "generating" status immediately in S3/disk
   await saveDb();
 
-  try {
-    const provider = new RunPodVideoProvider({
-      apiKey: apiKey,
-      fluxEndpointId: process.env.RUNPOD_FLUX_ENDPOINT_ID || '',
-      wanEndpointId: process.env.RUNPOD_WAN_ENDPOINT_ID || '',
-      ltxEndpointId: process.env.RUNPOD_LTX_ENDPOINT_ID || '',
-      audioEndpointId: process.env.RUNPOD_AUDIO_ENDPOINT_ID || '',
-      loraEndpointId: process.env.RUNPOD_LORA_ENDPOINT_ID || '',
-    });
-
-    let prompt: string;
-    let aspectRatio: string;
-
-    if (enableLora) {
-      // Premium: Multi-angle reference sheet for LoRA training
-      prompt = `A professional multi-angle full-body character reference sheet of a character, ${visualStyle}. ${appearance}. Wearing: ${outfit}. The image must contain three separate views of the exact same character side-by-side: a front view, a side profile view, and a 3/4 angle view. The character must be fully visible from head to toe in all angles. Neutral expression, plain white studio background. Highly detailed, consistent character design across all angles.`;
-      aspectRatio = '16:9';
-      console.log(`[Characters] Generating multi-angle full-body character sheet for ${name} (Premium LoRA mode)...`);
-    } else {
-      // Standard: Single clean portrait
-      prompt = `A highly detailed ${visualStyle} full-body portrait of a character. ${appearance}. Wearing: ${outfit}. The character must be fully visible from head to toe. Looking directly at the camera with a confident expression. Clean studio lighting, soft bokeh background. Cinematic quality, sharp focus, professional character design.`;
-      aspectRatio = '1:1';
-      console.log(`[Characters] Generating single portrait for ${name} (Standard mode)...`);
-    }
-
-    const options: any = {};
-    if (referenceImageUrl) {
-      options.referenceImageUrl = referenceImageUrl;
-    }
-
-    const imageUrl = await provider.generateImage(prompt, aspectRatio, options);
-    
-    newCharacter.imageUrl = imageUrl;
-    newCharacter.status = 'ready';
-    MOCK_CHARACTERS[characterId] = newCharacter;
-    
-    await saveDb();
-    // Return the character immediately
-    res.status(201).json(newCharacter);
-
-    // If Premium mode, kick off LoRA dataset generation + training in the background
-    if (enableLora) {
-      console.log(`[Characters] Premium mode — starting background LoRA pipeline for ${name}...`);
-      
-      const loraId = crypto.randomUUID();
-      const loraMetadata: LoraMetadata = {
-        id: loraId,
-        characterId,
-        version: 1,
-        triggerToken: `ohwx ${name.toLowerCase().replace(/[^a-z]/g, '')}`,
-        datasetUrls: [],
-        status: 'generating_dataset',
-        createdAt: new Date().toISOString()
-      };
-      MOCK_LORAS[loraId] = loraMetadata;
-      newCharacter.loraId = loraId;
-
-      // Background async — don't block the response
-      (async () => {
-        try {
-          const datasetPrompts = [
-            `A close-up portrait of ${appearance}. Wearing: ${outfit}. Neutral expression, looking directly at the camera, plain white background, highly detailed.`,
-            `A side profile full-body shot of ${appearance}. Wearing: ${outfit}. The character is fully visible from head to toe. Looking to the right, plain white background, highly detailed.`,
-            `A 3/4 angle full-body view of ${appearance}. Wearing: ${outfit}. The character is fully visible from head to toe. Looking slightly away, plain white background, highly detailed.`,
-            `A full-body shot of ${appearance}. Wearing: ${outfit}. The character is fully visible from head to toe. Standing naturally, plain white background, highly detailed.`
-          ];
-
-          console.log(`[LoRA] Generating ${datasetPrompts.length} dataset images for ${name}...`);
-          for (const p of datasetPrompts) {
-            const url = await provider.generateImage(p, '1:1');
-            loraMetadata.datasetUrls.push(url);
-            console.log(`[LoRA] Dataset image ${loraMetadata.datasetUrls.length}/${datasetPrompts.length}`);
-          }
-
-          // Dispatch training
-          loraMetadata.status = 'training';
-          console.log(`[LoRA] Dispatching training job for ${name}...`);
-          const safetensorsUrl = await provider.trainLora(loraId, loraMetadata.triggerToken, loraMetadata.datasetUrls);
-          
-          if (safetensorsUrl) {
-            loraMetadata.safetensorsUrl = safetensorsUrl;
-            loraMetadata.status = 'completed';
-            console.log(`[LoRA] ✅ Training complete for ${name}! URL: ${safetensorsUrl}`);
-          } else {
-            throw new Error('No URL returned from training');
-          }
-          await saveDb();
-        } catch (err: any) {
-          console.error(`[LoRA] ❌ Pipeline failed for ${name}:`, err.message);
-          loraMetadata.status = 'failed';
-          await saveDb();
-        }
-      })();
-    }
-
-    return;
-  } catch (error: any) {
-    console.error(`[Characters] Failed to generate character image:`, error);
-    // Cleanup character so it doesn't get stuck in "generating" state
-    delete MOCK_CHARACTERS[characterId];
-    await saveDb();
-    return res.status(500).json({ error: 'Failed to generate character image', details: error.message });
+  // If serverless, dispatch to SQS
+  if (IS_SERVERLESS && process.env.SQS_QUEUE_URL) {
+    console.log(`[POST] Dispatching character generation for ${name} to SQS...`);
+    await sqsClient.send(new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({ type: 'character', characterId, enableLora, referenceImageUrl })
+    }));
+  } else {
+    // Local run — run asynchronously in background process (non-blocking)
+    console.log(`[POST] Running local background generation for character ${name}...`);
+    simulateCharacterGeneration(characterId, enableLora, referenceImageUrl).catch(console.error);
   }
+
+  // Return the character immediately with 202 Accepted
+  return res.status(202).json(newCharacter);
 });
 
 app.post('/api/v1/characters/:character_id/generate-dataset', async (req: Request, res: Response) => {
