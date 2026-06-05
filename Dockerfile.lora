@@ -6,3 +6,4 @@ WORKDIR /workspace
 COPY worker/lora_trainer/train_handler.py /workspace/train_handler.py
 
 CMD ["python", "/workspace/train_handler.py"]
+# Trigger RunPod rebuild now that base image is built
