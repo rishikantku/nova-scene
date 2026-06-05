@@ -22,16 +22,24 @@ export default function StoriesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories`)
-      .then((res) => res.json())
-      .then((data) => {
-        setStories(data.stories || []);
-        setIsLoading(false);
+    const fetchStories = () => {
+      fetch(`${process.env.NODE_ENV === 'production' ? 'https://esudvxmq41.execute-api.ap-south-1.amazonaws.com' : 'http://localhost:8000'}/api/v1/stories?cb=${Date.now()}`, {
+        cache: 'no-store'
       })
-      .catch((err) => {
-        console.error("Failed to load stories:", err);
-        setIsLoading(false);
-      });
+        .then((res) => res.json())
+        .then((data) => {
+          setStories(data.stories || []);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load stories:", err);
+          setIsLoading(false);
+        });
+    };
+
+    fetchStories();
+    const interval = setInterval(fetchStories, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleDeleteStory = async (e: React.MouseEvent, storyId: string) => {
