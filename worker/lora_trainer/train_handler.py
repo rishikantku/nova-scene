@@ -106,7 +106,7 @@ def create_dataset_toml(img_dir: str, trigger_token: str, toml_path: str):
     """Create a dataset TOML config file for Flux training."""
     # Flux training with kohya requires a TOML dataset config
     toml_content = f"""[general]
-shuffle_caption = true
+shuffle_caption = false
 caption_extension = '.txt'
 keep_tokens = 1
 
